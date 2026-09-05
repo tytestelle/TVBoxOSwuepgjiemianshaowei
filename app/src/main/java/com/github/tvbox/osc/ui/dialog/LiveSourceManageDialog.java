@@ -1,24 +1,23 @@
 package com.github.tvbox.osc.ui.dialog;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
+import android.widget.BaseAdapter;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.util.HawkConfig;
@@ -32,7 +31,7 @@ import java.util.List;
 
 public class LiveSourceManageDialog extends Dialog {
 
-    private RecyclerView recyclerView;
+    private ListView listView;
     private SourceAdapter adapter;
     private EditText etName, etUrl;
     private ImageView ivQrCode;
@@ -44,49 +43,124 @@ public class LiveSourceManageDialog extends Dialog {
     }
 
     public LiveSourceManageDialog(@NonNull Context context, OnSourceChangeListener listener) {
-        super(context, R.style.DialogSourceManage);
+        super(context);
         this.listener = listener;
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.dialog_live_source_manage);
 
-        Window window = getWindow();
-        if (window != null) {
-            WindowManager.LayoutParams params = window.getAttributes();
-            params.width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.85);
-            params.height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.75);
-            params.gravity = android.view.Gravity.CENTER;
-            window.setAttributes(params);
+        // 使用自定义布局，但这次用 LinearLayout 手动构建，避免加载 XML 失败
+        View contentView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_live_source_manage, null);
+        if (contentView == null) {
+            // 如果布局文件加载失败，使用最简单的线性布局（应急方案）
+            setContentView(createFallbackView());
+        } else {
+            setContentView(contentView);
         }
 
-        recyclerView = findViewById(R.id.recyclerView);
+        // 如果布局加载成功，则正常绑定控件
+        listView = findViewById(R.id.recyclerView);
+        if (listView == null) {
+            // 如果列表控件找不到，说明布局有问题，使用应急方案
+            setContentView(createFallbackView());
+            listView = findViewById(R.id.recyclerView);
+        }
+
         etName = findViewById(R.id.et_name);
         etUrl = findViewById(R.id.et_url);
         ivQrCode = findViewById(R.id.iv_qr_code);
         tvDeviceInfo = findViewById(R.id.tv_device_info);
 
-        String ip = getDeviceIp();
-        String port = "9978";
-        String content = "http://" + ip + ":" + port + "/";
-        tvDeviceInfo.setText(content);
-        Bitmap qr = QRCodeUtil.createQRCode(content, 300);
-        if (qr != null) {
-            ivQrCode.setImageBitmap(qr);
-        } else {
-            ivQrCode.setImageDrawable(null);
+        // 显示二维码
+        if (ivQrCode != null && tvDeviceInfo != null) {
+            String ip = getDeviceIp();
+            String port = "9978";
+            String content = "http://" + ip + ":" + port + "/";
+            tvDeviceInfo.setText(content);
+            android.graphics.Bitmap qr = QRCodeUtil.createQRCode(content, 300);
+            if (qr != null) {
+                ivQrCode.setImageBitmap(qr);
+            }
         }
 
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapter = new SourceAdapter();
-        recyclerView.setAdapter(adapter);
+        // 设置列表适配器
+        if (listView != null) {
+            adapter = new SourceAdapter();
+            listView.setAdapter(adapter);
+        }
 
-        findViewById(R.id.btn_add).setOnClickListener(v -> addSource());
-        findViewById(R.id.btn_close).setOnClickListener(v -> dismiss());
+        Button btnAdd = findViewById(R.id.btn_add);
+        Button btnClose = findViewById(R.id.btn_close);
+
+        if (btnAdd != null) {
+            btnAdd.setOnClickListener(v -> addSource());
+        }
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> dismiss());
+        }
 
         loadData();
+
+        // 设置窗口尺寸
+        getWindow().setLayout(
+                (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.85),
+                (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.75)
+        );
+    }
+
+    private View createFallbackView() {
+        // 应急布局：简单的垂直线性布局
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(getContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(32, 32, 32, 32);
+        layout.setBackgroundColor(0xFF222222);
+
+        // 标题
+        TextView title = new TextView(getContext());
+        title.setText("源列表");
+        title.setTextColor(0xFFFFFFFF);
+        title.setTextSize(18);
+        layout.addView(title);
+
+        // 列表
+        ListView lv = new ListView(getContext());
+        lv.setId(R.id.recyclerView);
+        lv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0));
+        lv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 400));
+        layout.addView(lv);
+
+        // 名称输入
+        EditText nameInput = new EditText(getContext());
+        nameInput.setId(R.id.et_name);
+        nameInput.setHint("名称(选填)");
+        nameInput.setTextColor(0xFFFFFFFF);
+        nameInput.setHintTextColor(0xFF888888);
+        layout.addView(nameInput);
+
+        // 地址输入
+        EditText urlInput = new EditText(getContext());
+        urlInput.setId(R.id.et_url);
+        urlInput.setHint("地址");
+        urlInput.setTextColor(0xFFFFFFFF);
+        urlInput.setHintTextColor(0xFF888888);
+        layout.addView(urlInput);
+
+        // 按钮行
+        android.widget.LinearLayout btnRow = new android.widget.LinearLayout(getContext());
+        btnRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        Button btnAdd = new Button(getContext());
+        btnAdd.setId(R.id.btn_add);
+        btnAdd.setText("确定");
+        btnRow.addView(btnAdd);
+        Button btnClose = new Button(getContext());
+        btnClose.setId(R.id.btn_close);
+        btnClose.setText("关闭");
+        btnRow.addView(btnClose);
+        layout.addView(btnRow);
+
+        return layout;
     }
 
     private String getDeviceIp() {
@@ -111,7 +185,9 @@ public class LiveSourceManageDialog extends Dialog {
             String url = obj.has("url") ? obj.get("url").getAsString() : "";
             list.add(new SourceItem(name, url));
         }
-        adapter.setData(list);
+        if (adapter != null) {
+            adapter.setData(list);
+        }
     }
 
     private void saveData(List<SourceItem> list) {
@@ -123,13 +199,14 @@ public class LiveSourceManageDialog extends Dialog {
             array.add(obj);
         }
         Hawk.put(HawkConfig.LIVE_SOURCE_LIST, array);
-        // 如果有监听器，通知变化
-        if (listener != null) {
-            listener.onSourceChanged();
-        }
+        if (listener != null) listener.onSourceChanged();
     }
 
     private void addSource() {
+        if (etName == null || etUrl == null) {
+            Toast.makeText(getContext(), "控件未初始化，请重试", Toast.LENGTH_SHORT).show();
+            return;
+        }
         String name = etName.getText().toString().trim();
         String url = etUrl.getText().toString().trim();
         if (TextUtils.isEmpty(url)) {
@@ -139,7 +216,7 @@ public class LiveSourceManageDialog extends Dialog {
         if (TextUtils.isEmpty(name)) {
             name = extractNameFromUrl(url);
         }
-        List<SourceItem> list = adapter.getData();
+        List<SourceItem> list = adapter != null ? adapter.getData() : new ArrayList<>();
         for (SourceItem item : list) {
             if (item.url.equals(url)) {
                 Toast.makeText(getContext(), "地址已存在", Toast.LENGTH_SHORT).show();
@@ -147,10 +224,12 @@ public class LiveSourceManageDialog extends Dialog {
             }
         }
         list.add(new SourceItem(name, url));
-        adapter.setData(list);
+        if (adapter != null) {
+            adapter.setData(list);
+        }
         saveData(list);
-        etName.setText("");
-        etUrl.setText("");
+        if (etName != null) etName.setText("");
+        if (etUrl != null) etUrl.setText("");
         Toast.makeText(getContext(), "添加成功", Toast.LENGTH_SHORT).show();
     }
 
@@ -171,7 +250,7 @@ public class LiveSourceManageDialog extends Dialog {
         SourceItem(String n, String u) { name = n; url = u; }
     }
 
-    class SourceAdapter extends RecyclerView.Adapter<SourceAdapter.ViewHolder> {
+    class SourceAdapter extends BaseAdapter {
         private List<SourceItem> data = new ArrayList<>();
 
         public void setData(List<SourceItem> list) {
@@ -182,64 +261,81 @@ public class LiveSourceManageDialog extends Dialog {
 
         public List<SourceItem> getData() { return data; }
 
-        @NonNull
         @Override
-        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_source_manage, parent, false);
-            return new ViewHolder(v);
-        }
+        public int getCount() { return data.size(); }
 
         @Override
-        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            SourceItem item = data.get(position);
-            holder.tvName.setText(item.name);
-            holder.tvUrl.setText(item.url);
-            holder.btnCopy.setOnClickListener(v -> {
-                ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                cm.setText(item.url);
-                Toast.makeText(getContext(), "已复制", Toast.LENGTH_SHORT).show();
-            });
-            holder.btnDelete.setOnClickListener(v -> {
-                data.remove(position);
-                notifyDataSetChanged();
-                saveData(data);
-                Toast.makeText(getContext(), "已删除", Toast.LENGTH_SHORT).show();
-            });
-            holder.btnUp.setOnClickListener(v -> {
-                if (position > 0) {
-                    SourceItem prev = data.get(position - 1);
-                    data.set(position - 1, item);
-                    data.set(position, prev);
-                    notifyDataSetChanged();
-                    saveData(data);
+        public Object getItem(int position) { return data.get(position); }
+
+        @Override
+        public long getItemId(int position) { return position; }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            if (convertView == null) {
+                convertView = LayoutInflater.from(getContext()).inflate(R.layout.item_source_manage, parent, false);
+                if (convertView == null) {
+                    // 如果 item 布局加载失败，使用简单 TextView
+                    TextView tv = new TextView(getContext());
+                    tv.setTextColor(0xFFFFFFFF);
+                    tv.setPadding(16, 16, 16, 16);
+                    convertView = tv;
                 }
-            });
-            holder.btnDown.setOnClickListener(v -> {
-                if (position < data.size() - 1) {
-                    SourceItem next = data.get(position + 1);
-                    data.set(position + 1, item);
-                    data.set(position, next);
-                    notifyDataSetChanged();
-                    saveData(data);
-                }
-            });
-        }
-
-        @Override
-        public int getItemCount() { return data.size(); }
-
-        class ViewHolder extends RecyclerView.ViewHolder {
-            TextView tvName, tvUrl;
-            View btnCopy, btnDelete, btnUp, btnDown;
-            ViewHolder(View v) {
-                super(v);
-                tvName = v.findViewById(R.id.tv_name);
-                tvUrl = v.findViewById(R.id.tv_url);
-                btnCopy = v.findViewById(R.id.btn_copy);
-                btnDelete = v.findViewById(R.id.btn_delete);
-                btnUp = v.findViewById(R.id.btn_up);
-                btnDown = v.findViewById(R.id.btn_down);
             }
+            SourceItem item = data.get(position);
+
+            TextView tvName = convertView.findViewById(R.id.tv_name);
+            TextView tvUrl = convertView.findViewById(R.id.tv_url);
+            if (tvName != null && tvUrl != null) {
+                tvName.setText(item.name);
+                tvUrl.setText(item.url);
+            } else if (convertView instanceof TextView) {
+                ((TextView) convertView).setText(item.name + " - " + item.url);
+            }
+
+            View btnCopy = convertView.findViewById(R.id.btn_copy);
+            View btnDelete = convertView.findViewById(R.id.btn_delete);
+            View btnUp = convertView.findViewById(R.id.btn_up);
+            View btnDown = convertView.findViewById(R.id.btn_down);
+
+            if (btnCopy != null) {
+                btnCopy.setOnClickListener(v -> {
+                    ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                    cm.setText(item.url);
+                    Toast.makeText(getContext(), "已复制", Toast.LENGTH_SHORT).show();
+                });
+            }
+            if (btnDelete != null) {
+                btnDelete.setOnClickListener(v -> {
+                    data.remove(position);
+                    notifyDataSetChanged();
+                    saveData(data);
+                    Toast.makeText(getContext(), "已删除", Toast.LENGTH_SHORT).show();
+                });
+            }
+            if (btnUp != null) {
+                btnUp.setOnClickListener(v -> {
+                    if (position > 0) {
+                        SourceItem prev = data.get(position - 1);
+                        data.set(position - 1, item);
+                        data.set(position, prev);
+                        notifyDataSetChanged();
+                        saveData(data);
+                    }
+                });
+            }
+            if (btnDown != null) {
+                btnDown.setOnClickListener(v -> {
+                    if (position < data.size() - 1) {
+                        SourceItem next = data.get(position + 1);
+                        data.set(position + 1, item);
+                        data.set(position, next);
+                        notifyDataSetChanged();
+                        saveData(data);
+                    }
+                });
+            }
+            return convertView;
         }
     }
 }
