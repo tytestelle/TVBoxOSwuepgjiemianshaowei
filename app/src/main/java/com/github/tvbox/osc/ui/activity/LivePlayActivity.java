@@ -59,6 +59,7 @@ import com.github.tvbox.osc.ui.adapter.LiveEpgAdapter;
 import com.github.tvbox.osc.ui.adapter.LiveEpgDateAdapter;
 import com.github.tvbox.osc.ui.adapter.LiveSettingGroupAdapter;
 import com.github.tvbox.osc.ui.adapter.LiveSettingItemAdapter;
+import com.github.tvbox.osc.ui.adapter.LiveSourceAdapter;
 import com.github.tvbox.osc.ui.adapter.MyEpgAdapter;
 import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
 import com.github.tvbox.osc.ui.tv.widget.ViewObj;
@@ -146,8 +147,11 @@ public class LivePlayActivity extends BaseActivity {
     private TextView tvNetSpeed;
     private TextView tvResolution;
     private LinearLayout tvLeftChannelListLayout;
+    // 三列控件
+    private TvRecyclerView mSourceListView;      // 新增：源列表
     private TvRecyclerView mChannelGroupView;
     private TvRecyclerView mLiveChannelView;
+    private LiveSourceAdapter liveSourceAdapter; // 新增：源适配器
     private LiveChannelGroupAdapter liveChannelGroupAdapter;
     private LiveChannelItemAdapter liveChannelItemAdapter;
 
@@ -305,6 +309,7 @@ public class LivePlayActivity extends BaseActivity {
             switchChannelSnapshotImage = findViewById(R.id.switchChannelSnapshotImage);
 
             tvLeftChannelListLayout = findViewById(R.id.tvLeftChannnelListLayout);
+            mSourceListView = findViewById(R.id.mSourceListView);
             mChannelGroupView = findViewById(R.id.mGroupGridView);
             mLiveChannelView = findViewById(R.id.mChannelGridView);
             tvRightSettingLayout = findViewById(R.id.tvRightSettingLayout);
@@ -368,13 +373,13 @@ public class LivePlayActivity extends BaseActivity {
             iv_play = findViewById(R.id.iv_play);
             tvSelectedChannel = findViewById(R.id.tv_selected_channel);
 
-        // ========== 酷9手势与窗口初始化 ==========
-        gestureOverlay = findViewById(R.id.gesture_overlay);
-        llBottomInfoBar = findViewById(R.id.ll_bottom_info_bar);
-        epgProgressBar = findViewById(R.id.epg_progress_bar);
-        tvCurrentProgramName = findViewById(R.id.tv_current_program_name);
-        tvNextProgramName = findViewById(R.id.tv_next_program_name);
-        initGestureDetector();
+            // ========== 酷9手势与窗口初始化 ==========
+            gestureOverlay = findViewById(R.id.gesture_overlay);
+            llBottomInfoBar = findViewById(R.id.ll_bottom_info_bar);
+            epgProgressBar = findViewById(R.id.epg_progress_bar);
+            tvCurrentProgramName = findViewById(R.id.tv_current_program_name);
+            tvNextProgramName = findViewById(R.id.tv_next_program_name);
+            initGestureDetector();
 
             if (show) {
                 if (backcontroller != null) backcontroller.setVisibility(View.VISIBLE);
@@ -453,8 +458,12 @@ public class LivePlayActivity extends BaseActivity {
             initEpgListView();
             initDayList();
             initVideoView();
+
+            // 初始化三列
+            initSourceListView();
             initChannelGroupView();
             initLiveChannelView();
+
             initSettingGroupView();
             initSettingItemView();
             initLiveChannelList();
@@ -471,6 +480,88 @@ public class LivePlayActivity extends BaseActivity {
             startActivity(intent);
             finish();
         }
+    }
+
+    // ========== 新增：初始化源列表 ==========
+    private void initSourceListView() {
+        if (mSourceListView == null) return;
+        mSourceListView.setHasFixedSize(true);
+        mSourceListView.setLayoutManager(new V7LinearLayoutManager(this.mContext, 1, false));
+        liveSourceAdapter = new LiveSourceAdapter();
+        mSourceListView.setAdapter(liveSourceAdapter);
+        mSourceListView.setOnItemListener(new TvRecyclerView.OnItemListener() {
+            @Override public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+                liveSourceAdapter.setFocusedPosition(-1);
+            }
+            @Override
+            public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
+                liveSourceAdapter.setFocusedPosition(position);
+                mHandler.removeCallbacks(mHideChannelListRun);
+                mHandler.postDelayed(mHideChannelListRun, postTimeout);
+            }
+            @Override
+            public void onItemClick(TvRecyclerView parent, View itemView, int position) {
+                switchToSource(position);
+            }
+        });
+        liveSourceAdapter.setOnItemClickListener((adapter, view, position) -> {
+            FastClickCheckUtil.check(view);
+            switchToSource(position);
+        });
+    }
+
+    // ========== 新增：刷新源列表 ==========
+    private void refreshSourceList() {
+        JsonArray liveGroups = Hawk.get(HawkConfig.LIVE_GROUP_LIST, new JsonArray());
+        List<String> sourceNames = new ArrayList<>();
+        for (int i = 0; i < liveGroups.size(); i++) {
+            String name = liveGroups.get(i).getAsJsonObject().has("name") ?
+                    liveGroups.get(i).getAsJsonObject().get("name").getAsString() : "线路" + (i + 1);
+            sourceNames.add(name);
+        }
+        liveSourceAdapter.setNewData(sourceNames);
+        liveSourceAdapter.setSelectedPosition(ApiConfig.getLiveGroupIndex());
+    }
+
+    // ========== 新增：切换到指定源 ==========
+    private void switchToSource(int position) {
+        if (position < 0) return;
+        int currentIndex = ApiConfig.getLiveGroupIndex();
+        if (position == currentIndex) {
+            // 已选中，不重复加载
+            return;
+        }
+        ApiConfig.setLiveGroupIndex(position);
+        // 重新加载直播配置
+        ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
+            @Override
+            public void success() {
+                runOnUiThread(() -> {
+                    refreshSourceList();
+                    // 重新初始化频道列表
+                    initLiveChannelList();
+                    // 刷新分组和频道适配器
+                    if (liveChannelGroupAdapter != null) {
+                        liveChannelGroupAdapter.setNewData(new ArrayList<>(liveChannelGroupList));
+                    }
+                    // 默认选中第一个分组
+                    if (!liveChannelGroupList.isEmpty()) {
+                        selectChannelGroup(0, false, 0);
+                    }
+                    // 关闭面板或保持显示
+                    mHandler.removeCallbacks(mHideChannelListRun);
+                    mHandler.postDelayed(mHideChannelListRun, postTimeout);
+                });
+            }
+            @Override
+            public void error(String msg) {
+                runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
+            }
+            @Override
+            public void notice(String msg) {
+                runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 
     private void safeInitSettingPanel() {
@@ -1198,6 +1289,21 @@ public class LivePlayActivity extends BaseActivity {
                     focusCurrentGroupInMenu();
                     return true;
                 }
+                // 新增：左键从分组返回源列表
+                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && isFocusInView(mChannelGroupView)) {
+                    if (mSourceListView != null) {
+                        mSourceListView.requestFocus();
+                        mSourceListView.setSelection(liveSourceAdapter.getSelectedPosition());
+                    }
+                    return true;
+                }
+                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && isFocusInView(mLiveChannelView)) {
+                    if (mChannelGroupView != null) {
+                        mChannelGroupView.requestFocus();
+                        mChannelGroupView.setSelection(liveChannelGroupAdapter.getSelectedGroupIndex());
+                    }
+                    return true;
+                }
             }
             if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_INFO || keyCode == KeyEvent.KEYCODE_HELP) {
                 showSettingGroup();
@@ -1339,6 +1445,8 @@ public class LivePlayActivity extends BaseActivity {
         }
         if (liveChannelGroupList == null || liveChannelGroupList.isEmpty()) return;
         if (tvLeftChannelListLayout != null && tvLeftChannelListLayout.getVisibility() == View.INVISIBLE) {
+            // 刷新源列表
+            refreshSourceList();
             if (currentLiveLookBackIndex > -1 && mRightEpgList != null) {
                 mRightEpgList.setSelectedPosition(currentLiveLookBackIndex);
                 mRightEpgList.post(() -> mRightEpgList.smoothScrollToPosition(currentLiveLookBackIndex));
@@ -2454,7 +2562,8 @@ public class LivePlayActivity extends BaseActivity {
             clickSettingItem(position);
         });
     }
-        private void clickSettingItem(int position) {
+
+    private void clickSettingItem(int position) {
         int realGroupIndex = liveSettingGroupAdapter != null ? liveSettingGroupAdapter.getSelectedGroupIndex() : -1;
 
         if (realGroupIndex >= 0 && realGroupIndex < 3 && !isCurrentLiveChannelValid()) {
@@ -2873,6 +2982,8 @@ public class LivePlayActivity extends BaseActivity {
         // 显示源名称（优先从 Hawk 读取用户设置的名称）
         String sourceName = getCurrentSourceNameFromConfig();
         updateCurrentSourceName(sourceName);
+        // 刷新源列表
+        refreshSourceList();
         initLiveState();
     }
 
@@ -3328,7 +3439,7 @@ public class LivePlayActivity extends BaseActivity {
         return true;
     }
 
-        private ArrayList<Epginfo> parseXmlEpg(String xml, String channelName, Date date) {
+    private ArrayList<Epginfo> parseXmlEpg(String xml, String channelName, Date date) {
         ArrayList<Epginfo> epgList = new ArrayList<>();
         if (xml == null || channelName == null || date == null) return epgList;
         try {
@@ -3394,7 +3505,7 @@ public class LivePlayActivity extends BaseActivity {
         }
         return epgList;
     }
-    
+
     private Date getDayStart(Date date) throws ParseException {
         SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         dayFormat.setTimeZone(TimeZone.getTimeZone("GMT+8:00"));
