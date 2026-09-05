@@ -10,12 +10,6 @@ import com.github.tvbox.osc.bean.LiveChannelGroup;
 
 import java.util.ArrayList;
 
-
-/**
- * @author pj567
- * @date :2021/1/12
- * @description:
- */
 public class LiveChannelGroupAdapter extends BaseQuickAdapter<LiveChannelGroup, BaseViewHolder> {
     private int selectedGroupIndex = -1;
     private int focusedGroupIndex = -1;
@@ -28,13 +22,18 @@ public class LiveChannelGroupAdapter extends BaseQuickAdapter<LiveChannelGroup, 
     protected void convert(BaseViewHolder holder, LiveChannelGroup item) {
         TextView tvGroupName = holder.getView(R.id.tvChannelGroupName);
         tvGroupName.setText(item.getGroupName());
-        tvGroupName.setSelected(true);
         int groupIndex = item.getGroupIndex();
-        holder.itemView.setSelected(groupIndex == selectedGroupIndex);
-        if (groupIndex == selectedGroupIndex && groupIndex != focusedGroupIndex) {
+
+        // 选中状态优先级最高
+        if (groupIndex == selectedGroupIndex) {
             tvGroupName.setTextColor(mContext.getResources().getColor(R.color.color_1890FF));
+            tvGroupName.setBackgroundResource(R.drawable.bg_live_group_selected);
+        } else if (groupIndex == focusedGroupIndex) {
+            tvGroupName.setTextColor(Color.WHITE);
+            tvGroupName.setBackgroundResource(R.drawable.bg_live_group_focused);
         } else {
             tvGroupName.setTextColor(Color.WHITE);
+            tvGroupName.setBackgroundResource(android.R.color.transparent);
         }
     }
 
