@@ -9,10 +9,12 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -41,14 +43,20 @@ public class LiveSourceManageDialog extends Dialog {
     }
 
     public LiveSourceManageDialog(@NonNull Context context, OnSourceChangeListener listener) {
-    super(context, R.style.CustomDialogStyle);  // ✅ 使用已有样式
-    this.listener = listener;
-}
+        super(context, R.style.CustomDialogStyle);
+        this.listener = listener;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dialog_live_source_manage);
+
+        // 设置对话框宽高为全屏
+        Window window = getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        }
 
         recyclerView = findViewById(R.id.recyclerView);
         etName = findViewById(R.id.et_name);
@@ -58,7 +66,7 @@ public class LiveSourceManageDialog extends Dialog {
 
         // 显示二维码（设备IP+端口）
         String ip = getDeviceIp();
-        String port = "9978"; // 可根据实际服务端口调整
+        String port = "9978";
         String content = "http://" + ip + ":" + port + "/";
         tvDeviceInfo.setText(content);
         Bitmap qr = QRCodeUtil.createQRCode(content, 300);
@@ -75,7 +83,6 @@ public class LiveSourceManageDialog extends Dialog {
     }
 
     private String getDeviceIp() {
-        // 复用 ControlManager 获取地址
         try {
             String addr = com.github.tvbox.osc.server.ControlManager.get().getAddress(true);
             if (addr != null && addr.startsWith("http://")) {
