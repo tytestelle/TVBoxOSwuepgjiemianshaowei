@@ -149,10 +149,10 @@ public class LivePlayActivity extends BaseActivity {
     private TextView tvResolution;
     private LinearLayout tvLeftChannelListLayout;
     // 三列控件
-    private TvRecyclerView mSourceListView;      // 新增：源列表
+    private TvRecyclerView mSourceListView;      // 源列表
     private TvRecyclerView mChannelGroupView;
     private TvRecyclerView mLiveChannelView;
-    private LiveSourceAdapter liveSourceAdapter; // 新增：源适配器
+    private LiveSourceAdapter liveSourceAdapter;
     private LiveChannelGroupAdapter liveChannelGroupAdapter;
     private LiveChannelItemAdapter liveChannelItemAdapter;
 
@@ -166,7 +166,6 @@ public class LivePlayActivity extends BaseActivity {
     public static int currentChannelGroupIndex = 0;
     private Handler mHandler = new Handler();
 
-    // ========== 新增：左侧源名称显示 ==========
     private TextView tvCurrentSourceName;
     private String currentSourceName = "";
 
@@ -321,7 +320,6 @@ public class LivePlayActivity extends BaseActivity {
             tvNetSpeed = findViewById(R.id.tvNetSpeed);
             tvResolution = findViewById(R.id.tvResolution);
 
-            // 新增：源名称控件
             tvCurrentSourceName = findViewById(R.id.tv_current_source_name);
             if (tvCurrentSourceName != null) {
                 tvCurrentSourceName.setVisibility(View.GONE);
@@ -374,7 +372,6 @@ public class LivePlayActivity extends BaseActivity {
             iv_play = findViewById(R.id.iv_play);
             tvSelectedChannel = findViewById(R.id.tv_selected_channel);
 
-            // ========== 酷9手势与窗口初始化 ==========
             gestureOverlay = findViewById(R.id.gesture_overlay);
             llBottomInfoBar = findViewById(R.id.ll_bottom_info_bar);
             epgProgressBar = findViewById(R.id.epg_progress_bar);
@@ -460,7 +457,6 @@ public class LivePlayActivity extends BaseActivity {
             initDayList();
             initVideoView();
 
-            // 初始化三列
             initSourceListView();
             initChannelGroupView();
             initLiveChannelView();
@@ -483,7 +479,7 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
-    // ========== 新增：初始化源列表 ==========
+    // ========== 源列表相关方法 ==========
     private void initSourceListView() {
         if (mSourceListView == null) return;
         mSourceListView.setHasFixedSize(true);
@@ -511,7 +507,6 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
-    // ========== 修改：刷新源列表（从自定义列表读取） ==========
     private void refreshSourceList() {
         JsonArray sourceArray = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
         List<String> sourceNames = new ArrayList<>();
@@ -525,7 +520,6 @@ public class LivePlayActivity extends BaseActivity {
             }
         }
         liveSourceAdapter.setNewData(sourceNames);
-        // 选中当前使用的源
         int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
         if (selected >= 0 && selected < sourceNames.size()) {
             liveSourceAdapter.setSelectedPosition(selected);
@@ -534,7 +528,6 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
-    // ========== 修改：切换到指定源（从自定义列表加载） ==========
     private void switchToSource(int position) {
         JsonArray sourceArray = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
         if (sourceArray == null || position >= sourceArray.size()) {
@@ -560,7 +553,7 @@ public class LivePlayActivity extends BaseActivity {
                     }
                     mHandler.removeCallbacks(mHideChannelListRun);
                     mHandler.postDelayed(mHideChannelListRun, postTimeout);
-                    refreshSourceList(); // 更新高亮
+                    refreshSourceList();
                 });
             }
             @Override public void error(String msg) {
@@ -739,13 +732,11 @@ public class LivePlayActivity extends BaseActivity {
 
         String savedEpgKey = channelName + "_" + Objects.requireNonNull(liveEpgDateAdapter.getItem(liveEpgDateAdapter.getSelectedIndex())).getDatePresented();
 
-        // 先查内存缓存
         if (hsEpg.containsKey(savedEpgKey)) {
             showEpg(date, hsEpg.get(savedEpgKey));
             showBottomEpg();
             return;
         }
-        // 再查数据库缓存
         ArrayList<Epginfo> dbEpg = EpgUtil.loadEpgData(channel_Name.getChannelName(), dateStr, date);
         if (!dbEpg.isEmpty()) {
             hsEpg.put(savedEpgKey, dbEpg);
@@ -874,7 +865,6 @@ public class LivePlayActivity extends BaseActivity {
         }
         if (!arrayList.isEmpty()) {
             hsEpg.put(savedEpgKey, arrayList);
-            // 保存到数据库
             String dbDate = timeFormat.format(date);
             String dbChannel = channel_Name != null ? channel_Name.getChannelName() : "";
             if (!dbChannel.isEmpty()) {
@@ -1103,11 +1093,8 @@ public class LivePlayActivity extends BaseActivity {
         }
         if (tv_right_top_channel_name != null) tv_right_top_channel_name.setText(channel_Name.getChannelName());
         if (tv_right_top_epg_name != null) tv_right_top_epg_name.setText(channel_Name.getChannelName());
-    
-        // 酷9：更新底部信息栏显示
         updateBottomInfoBar();
     }
-
 
     private void setDefaultBottomEpg(TextView currentProgramName, TextView nextProgramName) {
         TimeZone timeZone = TimeZone.getTimeZone("GMT+8:00");
@@ -1134,7 +1121,6 @@ public class LivePlayActivity extends BaseActivity {
         if (channel_Name == null || channel_Name.getChannelName() == null) return;
         final String channelName = channel_Name.getChannelName();
         final String channelNameReal = normalizeEpgChannelName(getFirstPartBeforeSpace(channelName));
-        // 异步查台标，不阻塞主线程
         mHandler.post(() -> {
             String epgTagName = channelNameReal;
             String iconUrl = null;
@@ -1223,7 +1209,6 @@ public class LivePlayActivity extends BaseActivity {
             backcontroller.setVisibility(View.GONE);
             return;
         }
-        // 酷9：返回键弹出设置面板
         showSettingGroup();
     }
 
@@ -1297,7 +1282,6 @@ public class LivePlayActivity extends BaseActivity {
                     focusCurrentGroupInMenu();
                     return true;
                 }
-                // 新增：左键从分组返回源列表
                 if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && isFocusInView(mChannelGroupView)) {
                     if (mSourceListView != null) {
                         mSourceListView.requestFocus();
@@ -1366,7 +1350,6 @@ public class LivePlayActivity extends BaseActivity {
             }
         }
 
-        // 酷9：触摸/按键后显示底部信息栏
         if (!isListOrSettingLayoutVisible() && !isBack && event.getAction() == KeyEvent.ACTION_UP) {
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN
                     || keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
@@ -1414,9 +1397,7 @@ public class LivePlayActivity extends BaseActivity {
         super.onPause();
         try {
             unregisterReceiver(liveRefreshReceiver);
-        } catch (Exception e) {
-            // ignore
-        }
+        } catch (Exception e) { }
         if (mVideoView != null && !exitingLivePlay) {
             mVideoView.pause();
         }
@@ -1427,9 +1408,7 @@ public class LivePlayActivity extends BaseActivity {
         super.onDestroy();
         try {
             unregisterReceiver(liveRefreshReceiver);
-        } catch (Exception e) {
-            // ignore
-        }
+        } catch (Exception e) { }
         Hawk.put(HawkConfig.PLAYER_IS_LIVE, false);
         hideSwitchChannelSnapshot();
         mHandler.removeCallbacks(mLoadEpgRun);
@@ -1438,7 +1417,6 @@ public class LivePlayActivity extends BaseActivity {
     }
 
     private void showChannelList() {
-        // 酷9：显示频道列表时隐藏底部信息栏
         hideBottomInfoBar();
 
         if (tvRightSettingLayout != null && tvRightSettingLayout.getVisibility() == View.VISIBLE) {
@@ -1453,7 +1431,6 @@ public class LivePlayActivity extends BaseActivity {
         }
         if (liveChannelGroupList == null || liveChannelGroupList.isEmpty()) return;
         if (tvLeftChannelListLayout != null && tvLeftChannelListLayout.getVisibility() == View.INVISIBLE) {
-            // 刷新源列表
             refreshSourceList();
             if (currentLiveLookBackIndex > -1 && mRightEpgList != null) {
                 mRightEpgList.setSelectedPosition(currentLiveLookBackIndex);
@@ -1891,7 +1868,6 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
-    // ========== 新增：更新源名称显示 ==========
     private void updateCurrentSourceName(String sourceName) {
         if (TextUtils.isEmpty(sourceName)) {
             if (tvCurrentSourceName != null) {
@@ -1935,7 +1911,6 @@ public class LivePlayActivity extends BaseActivity {
         } else {
             currentLiveChannelItem.setinclude_back(false);
         }
-        // 不更新源名称，因为源名称在加载订阅时已设定
         updateCurrentChannelIcon();
         showBottomEpg();
         if (backcontroller != null) backcontroller.setVisibility(View.GONE);
@@ -2007,7 +1982,6 @@ public class LivePlayActivity extends BaseActivity {
     }
 
     private void showSettingGroup() {
-        // 酷9：显示设置时隐藏底部信息栏
         hideBottomInfoBar();
 
         if (tvLeftChannelListLayout != null && tvLeftChannelListLayout.getVisibility() == View.VISIBLE) {
@@ -2571,7 +2545,6 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
-    // ========== 修改 clickSettingItem 中 case 7 ==========
     private void clickSettingItem(int position) {
         int realGroupIndex = liveSettingGroupAdapter != null ? liveSettingGroupAdapter.getSelectedGroupIndex() : -1;
 
@@ -2685,7 +2658,6 @@ public class LivePlayActivity extends BaseActivity {
             }
             case 7:
                 if (position == 0) {
-                    // 弹出源管理对话框
                     LiveSourceManageDialog dialog = new LiveSourceManageDialog(this, () -> {
                         refreshSourceList();
                         JsonArray list = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
@@ -2732,7 +2704,6 @@ public class LivePlayActivity extends BaseActivity {
         mHandler.postDelayed(mHideSettingLayoutRun, postTimeout);
     }
 
-    // ========== 新增：执行更新订阅 ==========
     private void performUpdateSubscription() {
         String liveApiUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
         if (liveApiUrl.isEmpty()) {
@@ -2956,17 +2927,13 @@ public class LivePlayActivity extends BaseActivity {
         liveChannelGroupList.clear();
         liveChannelGroupList.addAll(groups);
         showSuccess();
-        // 显示源名称（优先从 Hawk 读取用户设置的名称）
         String sourceName = getCurrentSourceNameFromConfig();
         updateCurrentSourceName(sourceName);
-        // 刷新源列表
-        refreshSourceList();
+        refreshSourceList();  // 关键：刷新左侧源列表
         initLiveState();
     }
 
-    // ========== 获取当前源名称 ==========
     private String getCurrentSourceNameFromConfig() {
-        // 优先从自定义源列表获取当前选中源名称
         int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
         JsonArray list = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
         if (list != null && list.size() > selected) {
@@ -2976,7 +2943,6 @@ public class LivePlayActivity extends BaseActivity {
         return "默认源";
     }
 
-    // ========== 修改 initLiveState 以加载自定义源 ==========
     private void initLiveState() {
         refreshingLiveChannelList = false;
         String lastChannelName = pendingLiveRefreshChannelName == null ? Hawk.get(HawkConfig.LIVE_CHANNEL, "") : pendingLiveRefreshChannelName;
@@ -2984,20 +2950,17 @@ public class LivePlayActivity extends BaseActivity {
         pendingLiveRefreshChannelName = null;
         pendingLiveRefreshSourceIndex = -1;
 
-        // 尝试加载自定义源列表中选中的源
         int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
         JsonArray sourceList = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
         if (sourceList != null && sourceList.size() > selected) {
             JsonObject obj = sourceList.get(selected).getAsJsonObject();
             String url = obj.get("url").getAsString();
-            // 如果当前 API URL 与保存的不一致，重新加载
             if (!url.equals(Hawk.get(HawkConfig.LIVE_API_URL, ""))) {
                 Hawk.put(HawkConfig.LIVE_API_URL, url);
                 ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
                     @Override public void success() {
                         runOnUiThread(() -> {
                             initLiveChannelList();
-                            // 继续执行后续初始化
                             continueInitLiveState(lastChannelName, sourceIndex);
                         });
                     }
@@ -3006,11 +2969,10 @@ public class LivePlayActivity extends BaseActivity {
                     }
                     @Override public void notice(String msg) {}
                 });
-                return; // 等待异步完成
+                return;
             }
         }
 
-        // 没有自定义源或已加载，继续原有流程
         continueInitLiveState(lastChannelName, sourceIndex);
     }
 
@@ -3036,7 +2998,6 @@ public class LivePlayActivity extends BaseActivity {
             }
         }
         if (lastChannelGroupIndex == -1) {
-            // 尝试加载自定义源，但已加载或无需再加载，使用默认
             Integer[] cctv1Channel = getFirstChannelByName("CCTV1");
             if (cctv1Channel != null) {
                 lastChannelGroupIndex = cctv1Channel[0];
@@ -3457,7 +3418,6 @@ public class LivePlayActivity extends BaseActivity {
             Date dayStart = getDayStart(date);
             Date dayEnd = new Date(dayStart.getTime() + TimeUnit.DAYS.toMillis(1));
 
-            // 使用XmlPullParser流式解析，内存占用极低
             org.xmlpull.v1.XmlPullParser parser = org.xmlpull.v1.XmlPullParserFactory.newInstance().newPullParser();
             parser.setInput(new java.io.StringReader(xml));
 
@@ -3738,9 +3698,7 @@ public class LivePlayActivity extends BaseActivity {
         void onConfirm(String value);
     }
 
-
-    // ========== 酷9手势与窗口方法 ==========
-
+    // ========== 酷9手势 ==========
     private void initGestureDetector() {
         if (gestureOverlay == null) return;
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
@@ -3765,7 +3723,6 @@ public class LivePlayActivity extends BaseActivity {
             }
             @Override
             public boolean onDoubleTap(MotionEvent e) {
-                // 双击切换播放/暂停
                 if (mVideoView != null) {
                     if (mVideoView.isPlaying()) {
                         mVideoView.pause();
@@ -3800,13 +3757,10 @@ public class LivePlayActivity extends BaseActivity {
         }
 
         if (x < edge) {
-            // 左侧点击：显示频道列表
             showChannelList();
         } else if (x > width - edge) {
-            // 右侧点击：显示频道列表
             showChannelList();
         } else {
-            // 中间点击：切换底部信息栏
             if (isBottomInfoBarShowing) {
                 hideBottomInfoBar();
             } else {
@@ -3822,11 +3776,8 @@ public class LivePlayActivity extends BaseActivity {
         float edge = width * GESTURE_EDGE_RATIO;
 
         if (x > width - edge) {
-            // 右侧长按：设置
             showSettingGroup();
         } else if (x < edge) {
-            // 左侧长按：搜索（或显示EPG）
-            // 酷9左侧长按通常是搜索，这里用显示EPG替代
             if (tvLeftChannelListLayout != null && tvLeftChannelListLayout.getVisibility() != View.VISIBLE) {
                 showChannelList();
                 mHandler.postDelayed(() -> {
@@ -3847,34 +3798,25 @@ public class LivePlayActivity extends BaseActivity {
         float absDx = Math.abs(dx);
         float absDy = Math.abs(dy);
 
-        // 先判断是水平滑动还是垂直滑动
         if (absDx > absDy * 1.5f) {
-            // 水平滑动：切换线路
             if (dx > 80) {
-                // 向右滑：上一个线路
                 if (!isBack) playPreSource();
             } else if (dx < -80) {
-                // 向左滑：下一个线路
                 if (!isBack) playNextSource();
             }
         } else if (absDy > absDx * 1.5f) {
-            // 垂直滑动
             if (e1.getX() > width - edge) {
-                // 右侧上下滑：切换频道
                 if (dy > 50) {
                     playPrevious();
                 } else if (dy < -50) {
                     playNext();
                 }
-            } else if (e1.getX() < edge) {
-                // 左侧上下滑：音量（简化处理，实际需AudioManager）
-                // 这里用切换频道代替，或不做处理
             }
         }
     }
 
     private void handleScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-        // Scroll主要用于连续操作，这里可以不做处理或用于音量
+        // 可扩展音量调节
     }
 
     private void showBottomInfoBar() {
@@ -3904,11 +3846,9 @@ public class LivePlayActivity extends BaseActivity {
     private void updateBottomInfoBar() {
         if (llBottomInfoBar == null || currentLiveChannelItem == null) return;
 
-        // 频道号与名称
         if (tv_channelnum != null) tv_channelnum.setText(String.valueOf(currentLiveChannelItem.getChannelNum()));
         if (tip_chname != null) tip_chname.setText(currentLiveChannelItem.getChannelName());
 
-        // 当前/下一节目
         if (tvCurrentProgramName != null) {
             tvCurrentProgramName.setText(tip_epg1 != null ? tip_epg1.getText() : "");
         }
@@ -3916,7 +3856,6 @@ public class LivePlayActivity extends BaseActivity {
             tvNextProgramName.setText(tip_epg2 != null ? tip_epg2.getText() : "");
         }
 
-        // 来源信息
         if (tv_srcinfo != null) {
             if (currentLiveChannelItem.getSourceNum() <= 0) {
                 tv_srcinfo.setText("1/1");
@@ -3925,10 +3864,7 @@ public class LivePlayActivity extends BaseActivity {
             }
         }
 
-        // 台标
         updateCurrentChannelIcon();
-
-        // EPG进度条
         updateEpgProgress();
     }
 
