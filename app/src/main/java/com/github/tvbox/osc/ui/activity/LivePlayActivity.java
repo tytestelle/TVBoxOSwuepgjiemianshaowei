@@ -160,6 +160,11 @@ public class LivePlayActivity extends BaseActivity {
 
     public static int currentChannelGroupIndex = 0;
     private Handler mHandler = new Handler();
+
+    // ========== 新增：左侧源名称显示 ==========
+    private TextView tvCurrentSourceName;
+    private String currentSourceName = "";
+
     private android.content.BroadcastReceiver liveRefreshReceiver = new android.content.BroadcastReceiver() {
         @Override
         public void onReceive(android.content.Context context, android.content.Intent intent) {
@@ -309,6 +314,12 @@ public class LivePlayActivity extends BaseActivity {
             tvTime = findViewById(R.id.tvTime);
             tvNetSpeed = findViewById(R.id.tvNetSpeed);
             tvResolution = findViewById(R.id.tvResolution);
+
+            // 新增：源名称控件
+            tvCurrentSourceName = findViewById(R.id.tv_current_source_name);
+            if (tvCurrentSourceName != null) {
+                tvCurrentSourceName.setVisibility(View.GONE);
+            }
 
             tip_chname = findViewById(R.id.tv_channel_bar_name);
             tv_channelnum = findViewById(R.id.tv_channel_bottom_number);
@@ -1764,6 +1775,21 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
+    // ========== 新增：更新源名称显示 ==========
+    private void updateCurrentSourceName(String sourceName) {
+        if (TextUtils.isEmpty(sourceName)) {
+            if (tvCurrentSourceName != null) {
+                tvCurrentSourceName.setVisibility(View.GONE);
+            }
+            return;
+        }
+        currentSourceName = sourceName;
+        if (tvCurrentSourceName != null) {
+            tvCurrentSourceName.setText(sourceName);
+            tvCurrentSourceName.setVisibility(View.VISIBLE);
+        }
+    }
+
     private boolean playChannel(int channelGroupIndex, int liveChannelIndex, boolean changeSource) {
         if ((channelGroupIndex == currentChannelGroupIndex && liveChannelIndex == currentLiveChannelIndex && !changeSource)
                 || (changeSource && currentLiveChannelItem != null && currentLiveChannelItem.getSourceNum() == 1)) {
@@ -1793,6 +1819,8 @@ public class LivePlayActivity extends BaseActivity {
         } else {
             currentLiveChannelItem.setinclude_back(false);
         }
+        // 更新源名称
+        updateCurrentSourceName(currentLiveChannelItem.getSourceName());
         updateCurrentChannelIcon();
         showBottomEpg();
         if (backcontroller != null) backcontroller.setVisibility(View.GONE);
@@ -2550,40 +2578,13 @@ public class LivePlayActivity extends BaseActivity {
                             Hawk.put(HawkConfig.LIVE_API_URL, val);
                             Hawk.put(HawkConfig.API_URL, val);
                             HistoryHelper.setLiveApiHistory(val);
-                            Toast.makeText(this, "已保存，点击'更新订阅'生效", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, "已保存，自动加载新订阅...", Toast.LENGTH_SHORT).show();
+                            // 自动触发更新订阅
+                            performUpdateSubscription();
                         }
                     });
                 } else if (position == 1) {
-                    String liveApiUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
-                    if (liveApiUrl.isEmpty()) {
-                        Toast.makeText(this, "请先设置直播订阅地址", Toast.LENGTH_SHORT).show();
-                        break;
-                    }
-                    Toast.makeText(this, "正在更新订阅...", Toast.LENGTH_SHORT).show();
-                    final int reqId = ++liveConfigRequestId;
-                    String cfgChannelName = getPreferredLiveRefreshChannelName();
-                    int cfgSourceIndex = getPreferredLiveRefreshSourceIndex();
-                    ApiConfig.get().loadLiveConfig(true, new ApiConfig.LoadConfigCallback() {
-                        @Override public void success() {
-                            mHandler.post(() -> {
-                                if (reqId != liveConfigRequestId || isFinishing()) return;
-                                refreshLiveChannelListAndPlay(cfgChannelName, cfgSourceIndex);
-                                Toast.makeText(LivePlayActivity.this, "订阅更新成功", Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                        @Override public void error(String msg) {
-                            mHandler.post(() -> {
-                                if (reqId != liveConfigRequestId || isFinishing()) return;
-                                Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                        @Override public void notice(String msg) {
-                            mHandler.post(() -> {
-                                if (reqId != liveConfigRequestId || isFinishing()) return;
-                                Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                    });
+                    performUpdateSubscription();
                 }
                 break;
             case 8:
@@ -2611,6 +2612,40 @@ public class LivePlayActivity extends BaseActivity {
         }
         mHandler.removeCallbacks(mHideSettingLayoutRun);
         mHandler.postDelayed(mHideSettingLayoutRun, postTimeout);
+    }
+
+    // ========== 新增：执行更新订阅 ==========
+    private void performUpdateSubscription() {
+        String liveApiUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
+        if (liveApiUrl.isEmpty()) {
+            Toast.makeText(this, "请先设置直播订阅地址", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, "正在更新订阅...", Toast.LENGTH_SHORT).show();
+        final int reqId = ++liveConfigRequestId;
+        String cfgChannelName = getPreferredLiveRefreshChannelName();
+        int cfgSourceIndex = getPreferredLiveRefreshSourceIndex();
+        ApiConfig.get().loadLiveConfig(true, new ApiConfig.LoadConfigCallback() {
+            @Override public void success() {
+                mHandler.post(() -> {
+                    if (reqId != liveConfigRequestId || isFinishing()) return;
+                    refreshLiveChannelListAndPlay(cfgChannelName, cfgSourceIndex);
+                    Toast.makeText(LivePlayActivity.this, "订阅更新成功", Toast.LENGTH_SHORT).show();
+                });
+            }
+            @Override public void error(String msg) {
+                mHandler.post(() -> {
+                    if (reqId != liveConfigRequestId || isFinishing()) return;
+                    Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show();
+                });
+            }
+            @Override public void notice(String msg) {
+                mHandler.post(() -> {
+                    if (reqId != liveConfigRequestId || isFinishing()) return;
+                    Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
     }
 
     private String getPreferredLiveRefreshChannelName() {
@@ -2803,7 +2838,22 @@ public class LivePlayActivity extends BaseActivity {
         liveChannelGroupList.clear();
         liveChannelGroupList.addAll(groups);
         showSuccess();
+        // 显示源名称（从第一个分组或配置中获取）
+        String sourceName = getCurrentSourceNameFromConfig();
+        updateCurrentSourceName(sourceName);
         initLiveState();
+    }
+
+    // ========== 获取当前源名称 ==========
+    private String getCurrentSourceNameFromConfig() {
+        // 可从Hawk读取或从分组中提取
+        String saved = Hawk.get(HawkConfig.LIVE_SOURCE_NAME, "");
+        if (!TextUtils.isEmpty(saved)) return saved;
+        // 默认从第一个分组名
+        if (liveChannelGroupList != null && !liveChannelGroupList.isEmpty()) {
+            return liveChannelGroupList.get(0).getGroupName();
+        }
+        return "默认源";
     }
 
     private void initLiveState() {
