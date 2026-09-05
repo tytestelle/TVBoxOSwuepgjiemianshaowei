@@ -54,7 +54,7 @@ public class LiveSourceManageDialog extends Dialog {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dialog_live_source_manage);
 
-        // 设置窗口尺寸
+        // 设置窗口尺寸（半屏居中）
         Window window = getWindow();
         if (window != null) {
             WindowManager.LayoutParams params = window.getAttributes();
