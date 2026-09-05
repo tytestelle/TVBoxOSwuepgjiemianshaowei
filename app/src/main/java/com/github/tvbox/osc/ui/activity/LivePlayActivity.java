@@ -1819,8 +1819,7 @@ public class LivePlayActivity extends BaseActivity {
         } else {
             currentLiveChannelItem.setinclude_back(false);
         }
-        // 更新源名称
-        updateCurrentSourceName(currentLiveChannelItem.getSourceName());
+        // 不更新源名称，因为源名称在加载订阅时已设定
         updateCurrentChannelIcon();
         showBottomEpg();
         if (backcontroller != null) backcontroller.setVisibility(View.GONE);
@@ -2838,7 +2837,7 @@ public class LivePlayActivity extends BaseActivity {
         liveChannelGroupList.clear();
         liveChannelGroupList.addAll(groups);
         showSuccess();
-        // 显示源名称（从第一个分组或配置中获取）
+        // 显示源名称（从配置或分组获取）
         String sourceName = getCurrentSourceNameFromConfig();
         updateCurrentSourceName(sourceName);
         initLiveState();
@@ -2846,10 +2845,10 @@ public class LivePlayActivity extends BaseActivity {
 
     // ========== 获取当前源名称 ==========
     private String getCurrentSourceNameFromConfig() {
-        // 可从Hawk读取或从分组中提取
+        // 优先从 Hawk 读取保存的源名称
         String saved = Hawk.get(HawkConfig.LIVE_SOURCE_NAME, "");
         if (!TextUtils.isEmpty(saved)) return saved;
-        // 默认从第一个分组名
+        // 否则从第一个分组名获取
         if (liveChannelGroupList != null && !liveChannelGroupList.isEmpty()) {
             return liveChannelGroupList.get(0).getGroupName();
         }
