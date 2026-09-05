@@ -26,7 +26,7 @@
             android:scaleType="fitCenter" />
     </FrameLayout>
 
-    <!-- ========== 酷9：全屏手势触摸层（必须覆盖在视频上） ========== -->
+    <!-- ========== 酷9：全屏手势触摸层 ========== -->
     <View
         android:id="@+id/gesture_overlay"
         android:layout_width="match_parent"
@@ -80,27 +80,49 @@
         android:textSize="14sp"
         android:visibility="gone" />
 
-    <!-- ========== 左侧频道列表（酷9风格：半透明黑色背景） ========== -->
+    <!-- ========== 左侧频道列表（酷9风格） ========== -->
     <LinearLayout
         android:id="@+id/tvLeftChannnelListLayout"
         android:layout_width="480dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:visibility="invisible"
         android:background="#CC000000">
 
-        <com.owen.tvrecyclerview.widget.TvRecyclerView
-            android:id="@+id/mGroupGridView"
-            android:layout_width="160dp"
-            android:layout_height="match_parent"
-            android:padding="8dp" />
+        <!-- 新增：当前源名称显示 -->
+        <TextView
+            android:id="@+id/tv_current_source_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:textSize="16sp"
+            android:textColor="#FFCC00"
+            android:background="#333333"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="当前源：测试源" />
 
-        <com.owen.tvrecyclerview.widget.TvRecyclerView
-            android:id="@+id/mChannelGridView"
-            android:layout_width="320dp"
-            android:layout_height="match_parent"
-            android:padding="8dp" />
+        <!-- 分组与频道列表水平排列 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <com.owen.tvrecyclerview.widget.TvRecyclerView
+                android:id="@+id/mGroupGridView"
+                android:layout_width="160dp"
+                android:layout_height="match_parent"
+                android:padding="8dp" />
+
+            <com.owen.tvrecyclerview.widget.TvRecyclerView
+                android:id="@+id/mChannelGridView"
+                android:layout_width="320dp"
+                android:layout_height="match_parent"
+                android:padding="8dp" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- ========== 右侧设置面板 ========== -->
@@ -126,7 +148,7 @@
             android:padding="8dp" />
     </LinearLayout>
 
-    <!-- ========== 酷9风格底部信息栏（中下框） ========== -->
+    <!-- ========== 酷9风格底部信息栏 ========== -->
     <LinearLayout
         android:id="@+id/ll_bottom_info_bar"
         android:layout_width="match_parent"
