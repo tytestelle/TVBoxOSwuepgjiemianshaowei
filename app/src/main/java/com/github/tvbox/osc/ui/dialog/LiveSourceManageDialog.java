@@ -10,6 +10,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -43,7 +44,7 @@ public class LiveSourceManageDialog extends Dialog {
     }
 
     public LiveSourceManageDialog(@NonNull Context context, OnSourceChangeListener listener) {
-        super(context, R.style.CustomDialogStyle);
+        super(context, R.style.LiveSourceDialogStyle); // 使用新样式
         this.listener = listener;
     }
 
@@ -52,10 +53,16 @@ public class LiveSourceManageDialog extends Dialog {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dialog_live_source_manage);
 
-        // 设置对话框宽高为全屏
+        // 设置窗口宽高：宽度为屏幕的80%，高度包裹内容
         Window window = getWindow();
         if (window != null) {
-            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            WindowManager.LayoutParams params = window.getAttributes();
+            // 获取屏幕宽度
+            WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+            int screenWidth = wm.getDefaultDisplay().getWidth();
+            params.width = (int) (screenWidth * 0.85);
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            window.setAttributes(params);
         }
 
         recyclerView = findViewById(R.id.recyclerView);
@@ -69,7 +76,7 @@ public class LiveSourceManageDialog extends Dialog {
         String port = "9978";
         String content = "http://" + ip + ":" + port + "/";
         tvDeviceInfo.setText(content);
-        Bitmap qr = QRCodeUtil.createQRCode(content, 300);
+        Bitmap qr = QRCodeUtil.createQRCode(content, 200); // 减小二维码尺寸
         ivQrCode.setImageBitmap(qr);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -116,6 +123,7 @@ public class LiveSourceManageDialog extends Dialog {
             array.add(obj);
         }
         Hawk.put(HawkConfig.LIVE_SOURCE_LIST, array);
+        // 保存后立即回调通知外部刷新
         if (listener != null) listener.onSourceChanged();
     }
 
@@ -142,6 +150,7 @@ public class LiveSourceManageDialog extends Dialog {
         etName.setText("");
         etUrl.setText("");
         Toast.makeText(getContext(), "添加成功", Toast.LENGTH_SHORT).show();
+        // 不需要手动刷新，saveData中已触发回调
     }
 
     private String extractNameFromUrl(String url) {
