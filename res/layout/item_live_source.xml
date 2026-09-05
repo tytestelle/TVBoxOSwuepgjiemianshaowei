@@ -6,6 +6,6 @@
     android:padding="12dp"
     android:textSize="16sp"
     android:textColor="@android:color/white"
-    android:background="@drawable/selector_live_item"
+    android:background="@android:color/transparent"
     android:ellipsize="end"
     android:maxLines="1" />
