@@ -44,7 +44,7 @@ public class LiveSourceManageDialog extends Dialog {
     }
 
     public LiveSourceManageDialog(@NonNull Context context, OnSourceChangeListener listener) {
-        super(context, R.style.DialogSourceManage);  // 使用半屏样式
+        super(context, R.style.CustomDialogStyleDim); // 使用已有样式
         this.listener = listener;
     }
 
@@ -53,9 +53,9 @@ public class LiveSourceManageDialog extends Dialog {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dialog_live_source_manage);
 
-        // 设置窗口宽高（半屏，居中）
         Window window = getWindow();
         if (window != null) {
+            // 强制设置为半屏，居中
             WindowManager.LayoutParams params = window.getAttributes();
             params.width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.85);
             params.height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.75);
@@ -69,7 +69,6 @@ public class LiveSourceManageDialog extends Dialog {
         ivQrCode = findViewById(R.id.iv_qr_code);
         tvDeviceInfo = findViewById(R.id.tv_device_info);
 
-        // 显示二维码
         String ip = getDeviceIp();
         String port = "9978";
         String content = "http://" + ip + ":" + port + "/";
@@ -78,7 +77,6 @@ public class LiveSourceManageDialog extends Dialog {
         if (qr != null) {
             ivQrCode.setImageBitmap(qr);
         } else {
-            // 如果二维码生成失败，不设置图片（移除错误行）
             ivQrCode.setImageDrawable(null);
         }
 
