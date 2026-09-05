@@ -23,6 +23,7 @@ public class HawkConfig {
     public static final String DEFAULT_LOAD_LIVE = "DEFAULT_LOAD_LIVE";
     public static final String LIVE_PLAY_TYPE = "live_play_type";    // 0 系统 1 ijk 2 exo 10 MXPlayer
     public static final String LIVE_PLAY_SCALE = "live_play_scale";
+    public static final String LIVE_SOURCE_NAME = "live_source_name"; // 新增：当前加载的直播源名称
 
     // EPG相关（修正了重复定义）
     public static final String EPG_URL = "epg_url";                  // EPG订阅地址
