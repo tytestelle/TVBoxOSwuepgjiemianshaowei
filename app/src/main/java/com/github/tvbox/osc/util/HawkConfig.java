@@ -25,7 +25,7 @@ public class HawkConfig {
     public static final String LIVE_PLAY_SCALE = "live_play_scale";
     public static final String LIVE_SOURCE_NAME = "live_source_name"; // 新增：当前加载的直播源名称
     public static final String LIVE_SOURCE_LIST = "live_source_list";
-
+    public static final String LIVE_SOURCE_SELECTED = "live_source_selected";
     // EPG相关（修正了重复定义）
     public static final String EPG_URL = "epg_url";                  // EPG订阅地址
     public static final String EPG_HISTORY = "epg_history";          // EPG订阅历史
