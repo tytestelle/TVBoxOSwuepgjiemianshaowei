@@ -47,6 +47,7 @@
             android:textColor="@android:color/white"
             android:layout_marginBottom="8dp" />
 
+        <!-- 必须使用完整包名 -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
             android:layout_width="match_parent"
