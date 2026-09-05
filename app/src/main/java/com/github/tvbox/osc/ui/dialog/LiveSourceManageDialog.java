@@ -44,7 +44,7 @@ public class LiveSourceManageDialog extends Dialog {
     }
 
     public LiveSourceManageDialog(@NonNull Context context, OnSourceChangeListener listener) {
-        super(context, R.style.CustomDialogStyleDim); // 使用已有样式
+        super(context, R.style.DialogSourceManage);
         this.listener = listener;
     }
 
@@ -55,7 +55,6 @@ public class LiveSourceManageDialog extends Dialog {
 
         Window window = getWindow();
         if (window != null) {
-            // 强制设置为半屏，居中
             WindowManager.LayoutParams params = window.getAttributes();
             params.width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.85);
             params.height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.75);
@@ -124,7 +123,10 @@ public class LiveSourceManageDialog extends Dialog {
             array.add(obj);
         }
         Hawk.put(HawkConfig.LIVE_SOURCE_LIST, array);
-        if (listener != null) listener.onSourceChanged();
+        // 如果有监听器，通知变化
+        if (listener != null) {
+            listener.onSourceChanged();
+        }
     }
 
     private void addSource() {
