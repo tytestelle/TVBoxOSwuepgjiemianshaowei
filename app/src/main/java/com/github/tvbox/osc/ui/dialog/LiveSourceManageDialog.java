@@ -78,7 +78,8 @@ public class LiveSourceManageDialog extends Dialog {
         if (qr != null) {
             ivQrCode.setImageBitmap(qr);
         } else {
-            ivQrCode.setImageResource(R.drawable.ic_qr_placeholder);
+            // 如果二维码生成失败，不设置图片（移除错误行）
+            ivQrCode.setImageDrawable(null);
         }
 
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
