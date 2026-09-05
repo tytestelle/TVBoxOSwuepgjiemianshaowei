@@ -4,6 +4,8 @@ import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -55,10 +57,10 @@ public class LiveSourceManageDialog extends Dialog {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // ----- 动态构建 UI -----
+        // ----- 构建 UI -----
         LinearLayout root = new LinearLayout(getContext());
         root.setOrientation(LinearLayout.HORIZONTAL);
-        root.setPadding(32, 32, 32, 32);
+        root.setPadding(24, 24, 24, 24);
         root.setBackgroundColor(0xCC000000);
         root.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -68,21 +70,21 @@ public class LiveSourceManageDialog extends Dialog {
         LinearLayout leftPanel = new LinearLayout(getContext());
         leftPanel.setOrientation(LinearLayout.VERTICAL);
         leftPanel.setGravity(Gravity.CENTER);
-        leftPanel.setPadding(16, 16, 16, 16);
+        leftPanel.setPadding(8, 8, 8, 8);
         LinearLayout.LayoutParams leftParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1);
         leftPanel.setLayoutParams(leftParams);
 
         ivQrCode = new ImageView(getContext());
-        ivQrCode.setLayoutParams(new ViewGroup.LayoutParams(200, 200));
+        ivQrCode.setLayoutParams(new ViewGroup.LayoutParams(160, 160));
         leftPanel.addView(ivQrCode);
 
         tvDeviceInfo = new TextView(getContext());
         tvDeviceInfo.setTextColor(0xFFFFFFFF);
-        tvDeviceInfo.setTextSize(14);
-        tvDeviceInfo.setPadding(0, 16, 0, 0);
+        tvDeviceInfo.setTextSize(12);
+        tvDeviceInfo.setPadding(0, 8, 0, 0);
         leftPanel.addView(tvDeviceInfo);
 
-        // 右侧：列表 + 输入
+        // 右侧
         LinearLayout rightPanel = new LinearLayout(getContext());
         rightPanel.setOrientation(LinearLayout.VERTICAL);
         rightPanel.setPadding(16, 0, 0, 0);
@@ -92,22 +94,22 @@ public class LiveSourceManageDialog extends Dialog {
         TextView title = new TextView(getContext());
         title.setText("源列表");
         title.setTextColor(0xFFFFFFFF);
-        title.setTextSize(18);
-        title.setPadding(0, 0, 0, 16);
+        title.setTextSize(16);
+        title.setPadding(0, 0, 0, 12);
         rightPanel.addView(title);
 
         listView = new ListView(getContext());
         listView.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
-        // 移除 setDivider 的 int 调用，用 setDividerHeight 替代
-        listView.setDivider(null); // 无分割线
-        listView.setDividerHeight(0);
+        // 修复：使用 ColorDrawable
+        listView.setDivider(new ColorDrawable(0x44FFFFFF));
+        listView.setDividerHeight(2);
         rightPanel.addView(listView);
 
         // 输入行
         LinearLayout inputRow = new LinearLayout(getContext());
         inputRow.setOrientation(LinearLayout.HORIZONTAL);
-        inputRow.setPadding(0, 16, 0, 0);
+        inputRow.setPadding(0, 12, 0, 0);
         inputRow.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -116,7 +118,7 @@ public class LiveSourceManageDialog extends Dialog {
         etName.setTextColor(0xFFFFFFFF);
         etName.setHintTextColor(0xFF888888);
         LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        nameParams.setMargins(0, 0, 8, 0);
+        nameParams.setMargins(0, 0, 6, 0);
         etName.setLayoutParams(nameParams);
         inputRow.addView(etName);
 
@@ -125,7 +127,7 @@ public class LiveSourceManageDialog extends Dialog {
         etUrl.setTextColor(0xFFFFFFFF);
         etUrl.setHintTextColor(0xFF888888);
         LinearLayout.LayoutParams urlParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2);
-        urlParams.setMargins(0, 0, 8, 0);
+        urlParams.setMargins(0, 0, 6, 0);
         etUrl.setLayoutParams(urlParams);
         inputRow.addView(etUrl);
 
@@ -135,38 +137,35 @@ public class LiveSourceManageDialog extends Dialog {
 
         rightPanel.addView(inputRow);
 
-        // 关闭按钮
         Button btnClose = new Button(getContext());
         btnClose.setText("关闭");
         btnClose.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        btnClose.setPadding(0, 16, 0, 0);
+        btnClose.setPadding(0, 12, 0, 0);
         rightPanel.addView(btnClose);
 
         root.addView(leftPanel);
         root.addView(rightPanel);
         setContentView(root);
 
-        // 设置窗口尺寸
+        // 设置窗口尺寸（缩小）
         Window window = getWindow();
         if (window != null) {
             WindowManager.LayoutParams params = window.getAttributes();
-            params.width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.85);
-            params.height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.75);
+            params.width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.70);
+            params.height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.60);
             params.gravity = Gravity.CENTER;
             window.setAttributes(params);
         }
 
-        // 显示二维码
+        // 二维码
         String ip = getDeviceIp();
         String port = "9978";
         String content = "http://" + ip + ":" + port + "/";
         tvDeviceInfo.setText(content);
-        Bitmap qr = QRCodeUtil.createQRCode(content, 300);
+        Bitmap qr = QRCodeUtil.createQRCode(content, 160);
         if (qr != null) {
             ivQrCode.setImageBitmap(qr);
-        } else {
-            ivQrCode.setImageDrawable(null);
         }
 
         adapter = new SourceAdapter();
@@ -282,10 +281,9 @@ public class LiveSourceManageDialog extends Dialog {
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             if (convertView == null) {
-                // 动态创建列表项
                 LinearLayout itemLayout = new LinearLayout(getContext());
                 itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-                itemLayout.setPadding(16, 16, 16, 16);
+                itemLayout.setPadding(12, 12, 12, 12);
                 itemLayout.setBackgroundColor(0x33444444);
                 itemLayout.setLayoutParams(new ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -293,20 +291,19 @@ public class LiveSourceManageDialog extends Dialog {
                 TextView tvName = new TextView(getContext());
                 tvName.setId(R.id.tv_name);
                 tvName.setTextColor(0xFFFFFFFF);
-                tvName.setTextSize(16);
-                tvName.setPadding(0, 0, 16, 0);
+                tvName.setTextSize(14);
+                tvName.setPadding(0, 0, 12, 0);
                 tvName.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
                 itemLayout.addView(tvName);
 
                 TextView tvUrl = new TextView(getContext());
                 tvUrl.setId(R.id.tv_url);
                 tvUrl.setTextColor(0xFFAAAAAA);
-                tvUrl.setTextSize(12);
-                tvUrl.setPadding(0, 0, 16, 0);
+                tvUrl.setTextSize(11);
+                tvUrl.setPadding(0, 0, 12, 0);
                 tvUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
                 itemLayout.addView(tvUrl);
 
-                // 操作按钮（复制和删除）
                 TextView btnCopy = new TextView(getContext());
                 btnCopy.setId(R.id.btn_copy);
                 btnCopy.setText("复制");
@@ -332,7 +329,6 @@ public class LiveSourceManageDialog extends Dialog {
                 convertView = itemLayout;
             }
 
-            // 获取控件
             TextView tvName = convertView.findViewById(R.id.tv_name);
             TextView tvUrl = convertView.findViewById(R.id.tv_url);
             TextView btnCopy = convertView.findViewById(R.id.btn_copy);
