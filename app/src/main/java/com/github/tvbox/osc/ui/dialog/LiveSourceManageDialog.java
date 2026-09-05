@@ -1,6 +1,7 @@
 package com.github.tvbox.osc.ui.dialog;
 
 import android.app.Dialog;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Bundle;
@@ -57,7 +58,7 @@ public class LiveSourceManageDialog extends Dialog {
 
         // 显示二维码（设备IP+端口）
         String ip = getDeviceIp();
-        String port = "9978"; // 假设端口固定
+        String port = "9978"; // 可根据实际服务端口调整
         String content = "http://" + ip + ":" + port + "/";
         tvDeviceInfo.setText(content);
         Bitmap qr = QRCodeUtil.createQRCode(content, 300);
@@ -74,8 +75,17 @@ public class LiveSourceManageDialog extends Dialog {
     }
 
     private String getDeviceIp() {
-        // 实现获取本地IP，可复用 ControlManager.get().getAddress(true)
-        return "10.0.2.15"; // 示例，实际请调用 ControlManager.get().getAddress(true) 去掉端口
+        // 复用 ControlManager 获取地址
+        try {
+            String addr = com.github.tvbox.osc.server.ControlManager.get().getAddress(true);
+            if (addr != null && addr.startsWith("http://")) {
+                addr = addr.replace("http://", "");
+                int colon = addr.indexOf(':');
+                if (colon > 0) return addr.substring(0, colon);
+                return addr;
+            }
+        } catch (Exception e) { /* ignore */ }
+        return "127.0.0.1";
     }
 
     private void loadData() {
@@ -110,11 +120,9 @@ public class LiveSourceManageDialog extends Dialog {
             return;
         }
         if (TextUtils.isEmpty(name)) {
-            // 从url提取默认名称
             name = extractNameFromUrl(url);
         }
         List<SourceItem> list = adapter.getData();
-        // 检查重复
         for (SourceItem item : list) {
             if (item.url.equals(url)) {
                 Toast.makeText(getContext(), "地址已存在", Toast.LENGTH_SHORT).show();
@@ -170,7 +178,7 @@ public class LiveSourceManageDialog extends Dialog {
             holder.tvName.setText(item.name);
             holder.tvUrl.setText(item.url);
             holder.btnCopy.setOnClickListener(v -> {
-                android.content.ClipboardManager cm = (android.content.ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
                 cm.setText(item.url);
                 Toast.makeText(getContext(), "已复制", Toast.LENGTH_SHORT).show();
             });
