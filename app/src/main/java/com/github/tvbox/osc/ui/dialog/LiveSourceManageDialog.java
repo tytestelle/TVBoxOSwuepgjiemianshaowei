@@ -41,9 +41,9 @@ public class LiveSourceManageDialog extends Dialog {
     }
 
     public LiveSourceManageDialog(@NonNull Context context, OnSourceChangeListener listener) {
-        super(context, R.style.DialogFullScreen);
-        this.listener = listener;
-    }
+    super(context, R.style.CustomDialogStyle);  // ✅ 使用已有样式
+    this.listener = listener;
+}
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
