@@ -62,6 +62,7 @@ import com.github.tvbox.osc.ui.adapter.LiveSettingItemAdapter;
 import com.github.tvbox.osc.ui.adapter.LiveSourceAdapter;
 import com.github.tvbox.osc.ui.adapter.MyEpgAdapter;
 import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
+import com.github.tvbox.osc.ui.dialog.LiveSourceManageDialog;
 import com.github.tvbox.osc.ui.tv.widget.ViewObj;
 import com.github.tvbox.osc.util.DefaultConfig;
 import com.github.tvbox.osc.util.EpgUtil;
@@ -510,66 +511,46 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
-    // ========== 新增：刷新源列表（修正版，支持单源） ==========
+    // ========== 修改：刷新源列表（从自定义列表读取） ==========
     private void refreshSourceList() {
-        JsonArray liveGroups = Hawk.get(HawkConfig.LIVE_GROUP_LIST, new JsonArray());
+        JsonArray sourceArray = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
         List<String> sourceNames = new ArrayList<>();
-
-        if (liveGroups == null || liveGroups.size() == 0) {
-            // 没有多源配置，使用当前订阅地址的名称
-            String sourceName = Hawk.get(HawkConfig.LIVE_SOURCE_NAME, "");
-            if (TextUtils.isEmpty(sourceName)) {
-                // 从 URL 提取名称
-                String apiUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
-                if (apiUrl.isEmpty()) apiUrl = Hawk.get(HawkConfig.API_URL, "");
-                if (!TextUtils.isEmpty(apiUrl)) {
-                    try {
-                        Uri uri = Uri.parse(apiUrl);
-                        String host = uri.getHost();
-                        if (host != null) {
-                            String[] parts = host.split("\\.");
-                            sourceName = parts.length > 0 ? parts[0] : "直播";
-                        } else {
-                            sourceName = "直播";
-                        }
-                    } catch (Exception e) {
-                        sourceName = "直播";
-                    }
-                } else {
-                    sourceName = "直播";
-                }
-            }
-            sourceNames.add(sourceName);
+        if (sourceArray == null || sourceArray.size() == 0) {
+            sourceNames.add("无源");
         } else {
-            for (int i = 0; i < liveGroups.size(); i++) {
-                String name = liveGroups.get(i).getAsJsonObject().has("name") ?
-                        liveGroups.get(i).getAsJsonObject().get("name").getAsString() : "线路" + (i + 1);
+            for (int i = 0; i < sourceArray.size(); i++) {
+                JsonObject obj = sourceArray.get(i).getAsJsonObject();
+                String name = obj.has("name") ? obj.get("name").getAsString() : "未命名";
                 sourceNames.add(name);
             }
         }
-
         liveSourceAdapter.setNewData(sourceNames);
-        liveSourceAdapter.setSelectedPosition(0);
+        // 选中当前使用的源
+        int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+        if (selected >= 0 && selected < sourceNames.size()) {
+            liveSourceAdapter.setSelectedPosition(selected);
+        } else {
+            liveSourceAdapter.setSelectedPosition(0);
+        }
     }
 
-    // ========== 新增：切换到指定源 ==========
+    // ========== 修改：切换到指定源（从自定义列表加载） ==========
     private void switchToSource(int position) {
-        if (position < 0) return;
-        // 检查是否多源模式，如果不是则忽略切换
-        JsonArray liveGroups = Hawk.get(HawkConfig.LIVE_GROUP_LIST, new JsonArray());
-        if (liveGroups == null || liveGroups.size() == 0) {
-            Toast.makeText(this, "当前为单源模式，无法切换", Toast.LENGTH_SHORT).show();
+        JsonArray sourceArray = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
+        if (sourceArray == null || position >= sourceArray.size()) {
+            Toast.makeText(this, "无效源", Toast.LENGTH_SHORT).show();
             return;
         }
-        int currentIndex = ApiConfig.getLiveGroupIndex();
-        if (position == currentIndex) return;
+        JsonObject obj = sourceArray.get(position).getAsJsonObject();
+        String url = obj.get("url").getAsString();
+        String name = obj.get("name").getAsString();
+        Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, position);
+        Hawk.put(HawkConfig.LIVE_API_URL, url);
+        updateCurrentSourceName(name);
 
-        ApiConfig.setLiveGroupIndex(position);
         ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
-            @Override
-            public void success() {
+            @Override public void success() {
                 runOnUiThread(() -> {
-                    refreshSourceList();
                     initLiveChannelList();
                     if (liveChannelGroupAdapter != null) {
                         liveChannelGroupAdapter.setNewData(new ArrayList<>(liveChannelGroupList));
@@ -579,14 +560,13 @@ public class LivePlayActivity extends BaseActivity {
                     }
                     mHandler.removeCallbacks(mHideChannelListRun);
                     mHandler.postDelayed(mHideChannelListRun, postTimeout);
+                    refreshSourceList(); // 更新高亮
                 });
             }
-            @Override
-            public void error(String msg) {
+            @Override public void error(String msg) {
                 runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
             }
-            @Override
-            public void notice(String msg) {
+            @Override public void notice(String msg) {
                 runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
             }
         });
@@ -1720,7 +1700,7 @@ public class LivePlayActivity extends BaseActivity {
     private void initLiveObj() {
         catchup = null;
         logoUrl = null;
-        int position = ApiConfig.getLiveGroupIndex();
+        int position = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
         JsonArray live_groups = Hawk.get(HawkConfig.LIVE_GROUP_LIST, new JsonArray());
         if (live_groups == null || live_groups.size() == 0 || position < 0 || position >= live_groups.size()) {
             return;
@@ -2591,6 +2571,7 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
+    // ========== 修改 clickSettingItem 中 case 7 ==========
     private void clickSettingItem(int position) {
         int realGroupIndex = liveSettingGroupAdapter != null ? liveSettingGroupAdapter.getSelectedGroupIndex() : -1;
 
@@ -2704,54 +2685,22 @@ public class LivePlayActivity extends BaseActivity {
             }
             case 7:
                 if (position == 0) {
-                    // 自定义订阅对话框（图片样式）
-                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                    builder.setTitle("列表订阅");
-
-                    LinearLayout layout = new LinearLayout(this);
-                    layout.setOrientation(LinearLayout.VERTICAL);
-                    layout.setPadding(50, 30, 50, 30);
-
-                    // 名称输入框（选填）
-                    EditText nameInput = new EditText(this);
-                    nameInput.setHint("名称(选填)");
-                    nameInput.setSingleLine();
-                    layout.addView(nameInput);
-
-                    // 地址输入框
-                    EditText urlInput = new EditText(this);
-                    String defaultUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
-                    if (defaultUrl.isEmpty()) defaultUrl = Hawk.get(HawkConfig.API_URL, "");
-                    urlInput.setText(defaultUrl);
-                    urlInput.setHint("地址（点击左侧提示按钮配置headers）");
-                    urlInput.setSingleLine();
-                    layout.addView(urlInput);
-
-                    builder.setView(layout);
-
-                    builder.setPositiveButton("确定", (dialog, which) -> {
-                        String name = nameInput.getText().toString().trim();
-                        String url = urlInput.getText().toString().trim();
-                        if (url.isEmpty()) {
-                            Toast.makeText(this, "地址不能为空", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        // 保存地址和名称
-                        Hawk.put(HawkConfig.LIVE_API_URL, url);
-                        Hawk.put(HawkConfig.API_URL, url);
-                        HistoryHelper.setLiveApiHistory(url);
-                        if (!name.isEmpty()) {
-                            Hawk.put(HawkConfig.LIVE_SOURCE_NAME, name);
+                    // 弹出源管理对话框
+                    LiveSourceManageDialog dialog = new LiveSourceManageDialog(this, () -> {
+                        refreshSourceList();
+                        JsonArray list = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
+                        if (list.size() > 0) {
+                            int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+                            if (selected >= list.size()) {
+                                Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+                                selected = 0;
+                            }
+                            switchToSource(selected);
                         } else {
-                            // 若名称为空，使用默认名称（可从URL提取或固定）
-                            Hawk.put(HawkConfig.LIVE_SOURCE_NAME, "订阅源");
+                            setEmptyLiveChannelList();
                         }
-                        Toast.makeText(this, "已保存，自动加载新订阅...", Toast.LENGTH_SHORT).show();
-                        performUpdateSubscription();
                     });
-
-                    builder.setNegativeButton("取消", null);
-                    builder.show();
+                    dialog.show();
                 } else if (position == 1) {
                     performUpdateSubscription();
                 }
@@ -3017,16 +2966,17 @@ public class LivePlayActivity extends BaseActivity {
 
     // ========== 获取当前源名称 ==========
     private String getCurrentSourceNameFromConfig() {
-        // 优先从 Hawk 读取保存的源名称（用户自定义）
-        String saved = Hawk.get(HawkConfig.LIVE_SOURCE_NAME, "");
-        if (!TextUtils.isEmpty(saved)) return saved;
-        // 否则从第一个分组名获取
-        if (liveChannelGroupList != null && !liveChannelGroupList.isEmpty()) {
-            return liveChannelGroupList.get(0).getGroupName();
+        // 优先从自定义源列表获取当前选中源名称
+        int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+        JsonArray list = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
+        if (list != null && list.size() > selected) {
+            JsonObject obj = list.get(selected).getAsJsonObject();
+            return obj.has("name") ? obj.get("name").getAsString() : "未命名";
         }
         return "默认源";
     }
 
+    // ========== 修改 initLiveState 以加载自定义源 ==========
     private void initLiveState() {
         refreshingLiveChannelList = false;
         String lastChannelName = pendingLiveRefreshChannelName == null ? Hawk.get(HawkConfig.LIVE_CHANNEL, "") : pendingLiveRefreshChannelName;
@@ -3034,6 +2984,37 @@ public class LivePlayActivity extends BaseActivity {
         pendingLiveRefreshChannelName = null;
         pendingLiveRefreshSourceIndex = -1;
 
+        // 尝试加载自定义源列表中选中的源
+        int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+        JsonArray sourceList = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
+        if (sourceList != null && sourceList.size() > selected) {
+            JsonObject obj = sourceList.get(selected).getAsJsonObject();
+            String url = obj.get("url").getAsString();
+            // 如果当前 API URL 与保存的不一致，重新加载
+            if (!url.equals(Hawk.get(HawkConfig.LIVE_API_URL, ""))) {
+                Hawk.put(HawkConfig.LIVE_API_URL, url);
+                ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
+                    @Override public void success() {
+                        runOnUiThread(() -> {
+                            initLiveChannelList();
+                            // 继续执行后续初始化
+                            continueInitLiveState(lastChannelName, sourceIndex);
+                        });
+                    }
+                    @Override public void error(String msg) {
+                        runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, "加载源失败: " + msg, Toast.LENGTH_SHORT).show());
+                    }
+                    @Override public void notice(String msg) {}
+                });
+                return; // 等待异步完成
+            }
+        }
+
+        // 没有自定义源或已加载，继续原有流程
+        continueInitLiveState(lastChannelName, sourceIndex);
+    }
+
+    private void continueInitLiveState(String lastChannelName, int sourceIndex) {
         int lastChannelGroupIndex = -1;
         int lastLiveChannelIndex = -1;
         LiveChannelItem lastLiveChannelItem = null;
@@ -3055,6 +3036,7 @@ public class LivePlayActivity extends BaseActivity {
             }
         }
         if (lastChannelGroupIndex == -1) {
+            // 尝试加载自定义源，但已加载或无需再加载，使用默认
             Integer[] cctv1Channel = getFirstChannelByName("CCTV1");
             if (cctv1Channel != null) {
                 lastChannelGroupIndex = cctv1Channel[0];
