@@ -2454,8 +2454,7 @@ public class LivePlayActivity extends BaseActivity {
             clickSettingItem(position);
         });
     }
-
-    private void clickSettingItem(int position) {
+        private void clickSettingItem(int position) {
         int realGroupIndex = liveSettingGroupAdapter != null ? liveSettingGroupAdapter.getSelectedGroupIndex() : -1;
 
         if (realGroupIndex >= 0 && realGroupIndex < 3 && !isCurrentLiveChannelValid()) {
@@ -2568,20 +2567,54 @@ public class LivePlayActivity extends BaseActivity {
             }
             case 7:
                 if (position == 0) {
-                    String defaultLiveUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
-                    if (defaultLiveUrl.isEmpty()) {
-                        defaultLiveUrl = Hawk.get(HawkConfig.API_URL, "");
-                    }
-                    showInputDialog("直播订阅地址", defaultLiveUrl, val -> {
-                        if (!val.isEmpty()) {
-                            Hawk.put(HawkConfig.LIVE_API_URL, val);
-                            Hawk.put(HawkConfig.API_URL, val);
-                            HistoryHelper.setLiveApiHistory(val);
-                            Toast.makeText(this, "已保存，自动加载新订阅...", Toast.LENGTH_SHORT).show();
-                            // 自动触发更新订阅
-                            performUpdateSubscription();
+                    // 自定义订阅对话框（图片样式）
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle("列表订阅");
+
+                    LinearLayout layout = new LinearLayout(this);
+                    layout.setOrientation(LinearLayout.VERTICAL);
+                    layout.setPadding(50, 30, 50, 30);
+
+                    // 名称输入框（选填）
+                    EditText nameInput = new EditText(this);
+                    nameInput.setHint("名称(选填)");
+                    nameInput.setSingleLine();
+                    layout.addView(nameInput);
+
+                    // 地址输入框
+                    EditText urlInput = new EditText(this);
+                    String defaultUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
+                    if (defaultUrl.isEmpty()) defaultUrl = Hawk.get(HawkConfig.API_URL, "");
+                    urlInput.setText(defaultUrl);
+                    urlInput.setHint("地址（点击左侧提示按钮配置headers）");
+                    urlInput.setSingleLine();
+                    layout.addView(urlInput);
+
+                    builder.setView(layout);
+
+                    builder.setPositiveButton("确定", (dialog, which) -> {
+                        String name = nameInput.getText().toString().trim();
+                        String url = urlInput.getText().toString().trim();
+                        if (url.isEmpty()) {
+                            Toast.makeText(this, "地址不能为空", Toast.LENGTH_SHORT).show();
+                            return;
                         }
+                        // 保存地址和名称
+                        Hawk.put(HawkConfig.LIVE_API_URL, url);
+                        Hawk.put(HawkConfig.API_URL, url);
+                        HistoryHelper.setLiveApiHistory(url);
+                        if (!name.isEmpty()) {
+                            Hawk.put(HawkConfig.LIVE_SOURCE_NAME, name);
+                        } else {
+                            // 若名称为空，使用默认名称（可从URL提取或固定）
+                            Hawk.put(HawkConfig.LIVE_SOURCE_NAME, "订阅源");
+                        }
+                        Toast.makeText(this, "已保存，自动加载新订阅...", Toast.LENGTH_SHORT).show();
+                        performUpdateSubscription();
                     });
+
+                    builder.setNegativeButton("取消", null);
+                    builder.show();
                 } else if (position == 1) {
                     performUpdateSubscription();
                 }
@@ -2837,7 +2870,7 @@ public class LivePlayActivity extends BaseActivity {
         liveChannelGroupList.clear();
         liveChannelGroupList.addAll(groups);
         showSuccess();
-        // 显示源名称（从配置或分组获取）
+        // 显示源名称（优先从 Hawk 读取用户设置的名称）
         String sourceName = getCurrentSourceNameFromConfig();
         updateCurrentSourceName(sourceName);
         initLiveState();
@@ -2845,7 +2878,7 @@ public class LivePlayActivity extends BaseActivity {
 
     // ========== 获取当前源名称 ==========
     private String getCurrentSourceNameFromConfig() {
-        // 优先从 Hawk 读取保存的源名称
+        // 优先从 Hawk 读取保存的源名称（用户自定义）
         String saved = Hawk.get(HawkConfig.LIVE_SOURCE_NAME, "");
         if (!TextUtils.isEmpty(saved)) return saved;
         // 否则从第一个分组名获取
