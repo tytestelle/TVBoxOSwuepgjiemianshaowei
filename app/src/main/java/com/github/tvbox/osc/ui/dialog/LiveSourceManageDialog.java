@@ -48,7 +48,6 @@ public class LiveSourceManageDialog extends Dialog {
     public LiveSourceManageDialog(@NonNull Context context, OnSourceChangeListener listener) {
         super(context);
         this.listener = listener;
-        // 设置无标题，背景透明
         requestWindowFeature(Window.FEATURE_NO_TITLE);
     }
 
@@ -100,8 +99,9 @@ public class LiveSourceManageDialog extends Dialog {
         listView = new ListView(getContext());
         listView.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
-        listView.setDividerHeight(2);
-        listView.setDivider(0x44FFFFFF);
+        // 移除 setDivider 的 int 调用，用 setDividerHeight 替代
+        listView.setDivider(null); // 无分割线
+        listView.setDividerHeight(0);
         rightPanel.addView(listView);
 
         // 输入行
@@ -212,9 +212,6 @@ public class LiveSourceManageDialog extends Dialog {
             array.add(obj);
         }
         Hawk.put(HawkConfig.LIVE_SOURCE_LIST, array);
-        // 验证保存是否成功
-        JsonArray saved = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
-        android.util.Log.i("LiveSourceDialog", "保存后列表长度：" + saved.size());
         if (listener != null) {
             listener.onSourceChanged();
         }
@@ -309,7 +306,7 @@ public class LiveSourceManageDialog extends Dialog {
                 tvUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
                 itemLayout.addView(tvUrl);
 
-                // 操作按钮（简单起见只添加复制和删除，用 TextView 代替）
+                // 操作按钮（复制和删除）
                 TextView btnCopy = new TextView(getContext());
                 btnCopy.setId(R.id.btn_copy);
                 btnCopy.setText("复制");
@@ -332,7 +329,6 @@ public class LiveSourceManageDialog extends Dialog {
                 btnDelete.setTag("delete");
                 itemLayout.addView(btnDelete);
 
-                // 上下移动（可选，省略以简化）
                 convertView = itemLayout;
             }
 
