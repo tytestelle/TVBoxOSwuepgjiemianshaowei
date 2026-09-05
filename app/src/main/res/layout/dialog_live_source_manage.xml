@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="horizontal"
     android:padding="16dp"
-    android:background="#DD000000">
+    android:background="#CC000000">
 
     <!-- 左侧二维码区域 -->
     <LinearLayout
@@ -47,7 +47,6 @@
             android:textColor="@android:color/white"
             android:layout_marginBottom="8dp" />
 
-        <!-- 修正 RecyclerView 为完整包名 -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
             android:layout_width="match_parent"
