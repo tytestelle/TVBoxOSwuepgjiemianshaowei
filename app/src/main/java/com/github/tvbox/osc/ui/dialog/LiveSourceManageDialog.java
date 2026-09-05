@@ -44,7 +44,7 @@ public class LiveSourceManageDialog extends Dialog {
     }
 
     public LiveSourceManageDialog(@NonNull Context context, OnSourceChangeListener listener) {
-        super(context, R.style.LiveSourceDialogStyle); // 使用新样式
+        super(context, R.style.DialogSourceManage);  // 使用半屏样式
         this.listener = listener;
     }
 
@@ -53,15 +53,13 @@ public class LiveSourceManageDialog extends Dialog {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dialog_live_source_manage);
 
-        // 设置窗口宽高：宽度为屏幕的80%，高度包裹内容
+        // 设置窗口宽高（半屏，居中）
         Window window = getWindow();
         if (window != null) {
             WindowManager.LayoutParams params = window.getAttributes();
-            // 获取屏幕宽度
-            WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
-            int screenWidth = wm.getDefaultDisplay().getWidth();
-            params.width = (int) (screenWidth * 0.85);
-            params.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            params.width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.85);
+            params.height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.75);
+            params.gravity = android.view.Gravity.CENTER;
             window.setAttributes(params);
         }
 
@@ -71,13 +69,17 @@ public class LiveSourceManageDialog extends Dialog {
         ivQrCode = findViewById(R.id.iv_qr_code);
         tvDeviceInfo = findViewById(R.id.tv_device_info);
 
-        // 显示二维码（设备IP+端口）
+        // 显示二维码
         String ip = getDeviceIp();
         String port = "9978";
         String content = "http://" + ip + ":" + port + "/";
         tvDeviceInfo.setText(content);
-        Bitmap qr = QRCodeUtil.createQRCode(content, 200); // 减小二维码尺寸
-        ivQrCode.setImageBitmap(qr);
+        Bitmap qr = QRCodeUtil.createQRCode(content, 300);
+        if (qr != null) {
+            ivQrCode.setImageBitmap(qr);
+        } else {
+            ivQrCode.setImageResource(R.drawable.ic_qr_placeholder);
+        }
 
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new SourceAdapter();
@@ -123,7 +125,6 @@ public class LiveSourceManageDialog extends Dialog {
             array.add(obj);
         }
         Hawk.put(HawkConfig.LIVE_SOURCE_LIST, array);
-        // 保存后立即回调通知外部刷新
         if (listener != null) listener.onSourceChanged();
     }
 
@@ -150,7 +151,6 @@ public class LiveSourceManageDialog extends Dialog {
         etName.setText("");
         etUrl.setText("");
         Toast.makeText(getContext(), "添加成功", Toast.LENGTH_SHORT).show();
-        // 不需要手动刷新，saveData中已触发回调
     }
 
     private String extractNameFromUrl(String url) {
