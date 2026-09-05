@@ -47,8 +47,11 @@ jobs:
           fi
 
           # ========== 修复 Python 路径 ==========
+          # pyramid/build.gradle 中的 buildPython 配置
           sed -i 's#buildPython("D:/Programs/Python/Python38/python.exe")#buildPython("python3")#g' pyramid/build.gradle
+          # 同时也修复 app/build.gradle（以防万一）
           sed -i '/buildPython/s/["'"'"'].*["'"'"']/"python3"/' app/build.gradle || true
+          # 验证修复是否成功
           echo "=== pyramid/build.gradle 中的 buildPython ==="
           grep "buildPython" pyramid/build.gradle
           echo "=== app/build.gradle 中的 buildPython ==="
@@ -120,8 +123,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           chmod +x gradlew
-          # 仅构建 64 位 ARM 架构（arm64-v8a）
-          ./gradlew assemblerelease --build-cache --parallel --daemon --warning-mode all -Pandroid.injected.build.abi=arm64-v8a
+          ./gradlew assemblerelease --build-cache --parallel --daemon --warning-mode all
 
       - name: Prepare App
         working-directory: ${{ github.workspace }}
