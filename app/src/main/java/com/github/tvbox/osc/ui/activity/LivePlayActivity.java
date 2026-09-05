@@ -510,45 +510,73 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
-    // ========== 新增：刷新源列表 ==========
+    // ========== 新增：刷新源列表（修正版，支持单源） ==========
     private void refreshSourceList() {
         JsonArray liveGroups = Hawk.get(HawkConfig.LIVE_GROUP_LIST, new JsonArray());
         List<String> sourceNames = new ArrayList<>();
-        for (int i = 0; i < liveGroups.size(); i++) {
-            String name = liveGroups.get(i).getAsJsonObject().has("name") ?
-                    liveGroups.get(i).getAsJsonObject().get("name").getAsString() : "线路" + (i + 1);
-            sourceNames.add(name);
+
+        if (liveGroups == null || liveGroups.size() == 0) {
+            // 没有多源配置，使用当前订阅地址的名称
+            String sourceName = Hawk.get(HawkConfig.LIVE_SOURCE_NAME, "");
+            if (TextUtils.isEmpty(sourceName)) {
+                // 从 URL 提取名称
+                String apiUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
+                if (apiUrl.isEmpty()) apiUrl = Hawk.get(HawkConfig.API_URL, "");
+                if (!TextUtils.isEmpty(apiUrl)) {
+                    try {
+                        Uri uri = Uri.parse(apiUrl);
+                        String host = uri.getHost();
+                        if (host != null) {
+                            String[] parts = host.split("\\.");
+                            sourceName = parts.length > 0 ? parts[0] : "直播";
+                        } else {
+                            sourceName = "直播";
+                        }
+                    } catch (Exception e) {
+                        sourceName = "直播";
+                    }
+                } else {
+                    sourceName = "直播";
+                }
+            }
+            sourceNames.add(sourceName);
+        } else {
+            for (int i = 0; i < liveGroups.size(); i++) {
+                String name = liveGroups.get(i).getAsJsonObject().has("name") ?
+                        liveGroups.get(i).getAsJsonObject().get("name").getAsString() : "线路" + (i + 1);
+                sourceNames.add(name);
+            }
         }
+
         liveSourceAdapter.setNewData(sourceNames);
-        liveSourceAdapter.setSelectedPosition(ApiConfig.getLiveGroupIndex());
+        liveSourceAdapter.setSelectedPosition(0);
     }
 
     // ========== 新增：切换到指定源 ==========
     private void switchToSource(int position) {
         if (position < 0) return;
-        int currentIndex = ApiConfig.getLiveGroupIndex();
-        if (position == currentIndex) {
-            // 已选中，不重复加载
+        // 检查是否多源模式，如果不是则忽略切换
+        JsonArray liveGroups = Hawk.get(HawkConfig.LIVE_GROUP_LIST, new JsonArray());
+        if (liveGroups == null || liveGroups.size() == 0) {
+            Toast.makeText(this, "当前为单源模式，无法切换", Toast.LENGTH_SHORT).show();
             return;
         }
+        int currentIndex = ApiConfig.getLiveGroupIndex();
+        if (position == currentIndex) return;
+
         ApiConfig.setLiveGroupIndex(position);
-        // 重新加载直播配置
         ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
             @Override
             public void success() {
                 runOnUiThread(() -> {
                     refreshSourceList();
-                    // 重新初始化频道列表
                     initLiveChannelList();
-                    // 刷新分组和频道适配器
                     if (liveChannelGroupAdapter != null) {
                         liveChannelGroupAdapter.setNewData(new ArrayList<>(liveChannelGroupList));
                     }
-                    // 默认选中第一个分组
                     if (!liveChannelGroupList.isEmpty()) {
                         selectChannelGroup(0, false, 0);
                     }
-                    // 关闭面板或保持显示
                     mHandler.removeCallbacks(mHideChannelListRun);
                     mHandler.postDelayed(mHideChannelListRun, postTimeout);
                 });
