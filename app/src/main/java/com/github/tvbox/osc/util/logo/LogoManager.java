@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.github.tvbox.osc.util.FileLogger;   // 新增
 import com.github.tvbox.osc.util.epg.EpgDataLoader;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
@@ -57,22 +58,33 @@ public class LogoManager {
         try {
             JsonArray arr = JsonParser.parseString(json).getAsJsonArray();
             enabledSources.clear();
-            for (int i=0; i<arr.size(); i++) {
+            for (int i = 0; i < arr.size(); i++) {
                 String name = arr.get(i).getAsString();
-                try { enabledSources.add(LogoSource.valueOf(name)); } catch (Exception e) {}
+                try {
+                    enabledSources.add(LogoSource.valueOf(name));
+                } catch (Exception e) {
+                }
             }
         } catch (Exception e) {
-            enabledSources.clear(); enabledSources.add(LogoSource.M3U); enabledSources.add(LogoSource.GITHUB); enabledSources.add(LogoSource.EPG);
+            enabledSources.clear();
+            enabledSources.add(LogoSource.M3U);
+            enabledSources.add(LogoSource.GITHUB);
+            enabledSources.add(LogoSource.EPG);
         }
     }
 
     public void setEnabledSources(List<LogoSource> sources) {
-        enabledSources.clear(); enabledSources.addAll(sources);
-        JsonArray arr = new JsonArray(); for (LogoSource s : sources) arr.add(s.name());
+        enabledSources.clear();
+        enabledSources.addAll(sources);
+        JsonArray arr = new JsonArray();
+        for (LogoSource s : sources) arr.add(s.name());
         context.getSharedPreferences("logo_settings", Context.MODE_PRIVATE).edit().putString("enabled_sources", arr.toString()).apply();
     }
 
-    public void updateM3uLogos(Map<String, String> logos) { m3uLogos.clear(); m3uLogos.putAll(logos); }
+    public void updateM3uLogos(Map<String, String> logos) {
+        m3uLogos.clear();
+        m3uLogos.putAll(logos);
+    }
 
     public void downloadLogo(String channelName, String fallbackUrl, LogoCallback callback) {
         executor.execute(() -> {
@@ -81,15 +93,18 @@ public class LogoManager {
                 if (callback != null) {
                     mainHandler.post(() -> callback.onSuccess(cacheFile));
                 }
+                FileLogger.write("LogoManager", "台标已缓存: " + channelName);
                 return;
             }
             Bitmap bitmap = downloadFromSources(channelName, fallbackUrl);
             if (bitmap != null) {
                 saveBitmap(bitmap, cacheFile);
+                FileLogger.write("LogoManager", "台标下载成功: " + channelName);
                 if (callback != null) {
                     mainHandler.post(() -> callback.onSuccess(cacheFile));
                 }
             } else {
+                FileLogger.write("LogoManager", "台标下载失败: " + channelName);
                 if (callback != null) {
                     mainHandler.post(() -> callback.onError("下载失败"));
                 }
@@ -112,18 +127,24 @@ public class LogoManager {
         Bitmap result = null;
         for (LogoSource src : enabledSources) {
             switch (src) {
-                case M3U: String m3uUrl = m3uLogos.get(channelName); if (m3uUrl != null) result = fetchBitmap(m3uUrl); break;
+                case M3U:
+                    String m3uUrl = m3uLogos.get(channelName);
+                    if (m3uUrl != null) result = fetchBitmap(m3uUrl);
+                    break;
                 case GITHUB:
                     String epgId = EpgDataLoader.getEpgId(channelName);
                     String fileName = epgId != null ? epgId + ".png" : channelName.replaceAll("[^a-zA-Z0-9]", "_") + ".png";
                     String githubUrl = "https://raw.githubusercontent.com/tytestelle/logo/main/ico/logo/" + fileName;
                     result = fetchBitmap(githubUrl);
                     break;
-                case EPG: break; // 可扩展
+                case EPG:
+                    break; // 可扩展
             }
             if (result != null) break;
         }
-        if (result == null && fallbackUrl != null && !fallbackUrl.isEmpty()) result = fetchBitmap(fallbackUrl);
+        if (result == null && fallbackUrl != null && !fallbackUrl.isEmpty()) {
+            result = fetchBitmap(fallbackUrl);
+        }
         return result;
     }
 
@@ -137,22 +158,25 @@ public class LogoManager {
                 if (bitmap != null) bitmap = removeBackground(bitmap);
                 return bitmap;
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+            FileLogger.write("LogoManager", "下载图片异常: " + url + " - " + e.getMessage());
+        }
         return null;
     }
 
     private Bitmap removeBackground(Bitmap src) {
         int w = src.getWidth(), h = src.getHeight();
         Bitmap result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        int[] pixels = new int[w*h];
+        int[] pixels = new int[w * h];
         src.getPixels(pixels, 0, w, 0, 0, w, h);
         int bg = pixels[0];
         int tolerance = 30;
-        for (int i=0; i<pixels.length; i++) {
+        for (int i = 0; i < pixels.length; i++) {
             int p = pixels[i];
-            if (Math.abs(Color.red(p)-Color.red(bg)) < tolerance &&
-                Math.abs(Color.green(p)-Color.green(bg)) < tolerance &&
-                Math.abs(Color.blue(p)-Color.blue(bg)) < tolerance) {
+            if (Math.abs(Color.red(p) - Color.red(bg)) < tolerance &&
+                    Math.abs(Color.green(p) - Color.green(bg)) < tolerance &&
+                    Math.abs(Color.blue(p) - Color.blue(bg)) < tolerance) {
                 pixels[i] = Color.TRANSPARENT;
             }
         }
@@ -161,9 +185,19 @@ public class LogoManager {
     }
 
     private void saveBitmap(Bitmap bitmap, File file) {
-        try { FileOutputStream fos = new FileOutputStream(file); bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos); fos.close(); }
-        catch (Exception e) { e.printStackTrace(); }
+        try {
+            FileOutputStream fos = new FileOutputStream(file);
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+            fos.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+            FileLogger.write("LogoManager", "保存台标失败: " + file.getName());
+        }
     }
 
-    public interface LogoCallback { void onSuccess(File file); void onError(String msg); }
+    public interface LogoCallback {
+        void onSuccess(File file);
+
+        void onError(String msg);
+    }
 }
