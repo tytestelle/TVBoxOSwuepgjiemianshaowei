@@ -177,7 +177,10 @@ public class RemoteServer extends NanoHTTPD {
                     String name = session.getParms().get("name");
                     byte[] rs = null;
                     try {
-                        rs = OkGoHelper.dnsOverHttps.lookupHttpsForwardSync(name);
+                        // ===== 修改开始：注释掉 DoH 查询，直接返回 null =====
+                        // rs = OkGoHelper.dnsOverHttps.lookupHttpsForwardSync(name);
+                        rs = null; // 或直接跳过 DoH 查询
+                        // ===== 修改结束 =====
                     } catch (Throwable th) {
                         rs = new byte[0];
                     }
