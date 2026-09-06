@@ -73,6 +73,7 @@ import com.github.tvbox.osc.ui.adapter.MyEpgAdapter;
 import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
 import com.github.tvbox.osc.ui.tv.widget.ViewObj;
 import com.github.tvbox.osc.util.DefaultConfig;
+import com.github.tvbox.osc.util.EpgManager;
 import com.github.tvbox.osc.util.EpgUtil;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
@@ -517,7 +518,6 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
-    // ===== 修改1：从 SharedPreferences 读取源列表并高亮 =====
     private void refreshSourceList() {
         SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
         String json = prefs.getString("source_list", "[]");
@@ -534,7 +534,6 @@ public class LivePlayActivity extends BaseActivity {
         }
         if (liveSourceAdapter != null) {
             liveSourceAdapter.setNewData(sourceNames);
-            // 恢复选中位置
             int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
             if (selected >= 0 && selected < sourceNames.size()) {
                 liveSourceAdapter.setSelectedPosition(selected);
@@ -544,7 +543,6 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
-    // ===== 修改2：从 SharedPreferences 读取源列表进行切换 =====
     private void switchToSource(int position) {
         SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
         String json = prefs.getString("source_list", "[]");
@@ -573,7 +571,7 @@ public class LivePlayActivity extends BaseActivity {
                     if (!liveChannelGroupList.isEmpty()) {
                         selectChannelGroup(0, false, 0);
                     }
-                    refreshSourceList(); // 刷新左侧列表并高亮
+                    refreshSourceList();
                     mHandler.removeCallbacks(mHideChannelListRun);
                     mHandler.postDelayed(mHideChannelListRun, 500);
                 });
@@ -1033,57 +1031,56 @@ public class LivePlayActivity extends BaseActivity {
         return trimName;
     }
 
+    // ===== 修改：使用 EpgManager 获取当前/下一个节目 =====
     @SuppressLint("SetTextI18n")
     private void showBottomEpg() {
         if (isSHIYI) return;
         if (channel_Name == null || channel_Name.getChannelName() == null) return;
+
+        // 更新频道名称和号码
         tip_chname.setText(channel_Name.getChannelName());
         tv_channelnum.setText("" + channel_Name.getChannelNum());
-        TextView tv_current_program_name = findViewById(R.id.tv_current_program_name);
-        TextView tv_next_program_name = findViewById(R.id.tv_next_program_name);
-        setDefaultBottomEpg(tv_current_program_name, tv_next_program_name);
 
-        if (liveEpgDateAdapter == null || liveEpgDateAdapter.getSelectedIndex() < 0) return;
-        String savedEpgKey = channel_Name.getChannelName() + "_" + Objects.requireNonNull(liveEpgDateAdapter.getItem(liveEpgDateAdapter.getSelectedIndex())).getDatePresented();
+        // 获取 EPG 数据（通过 EpgManager）
+        EpgManager manager = EpgManager.getInstance(this);
+        EpgManager.EpgProgram currentProgram = manager.getCurrentProgram(channel_Name.getChannelName());
+        EpgManager.EpgProgram nextProgram = manager.getNextProgram(channel_Name.getChannelName());
 
-        if (hsEpg.containsKey(savedEpgKey)) {
-            ArrayList<Epginfo> arrayList = hsEpg.get(savedEpgKey);
-            if (arrayList != null && arrayList.size() > 0) {
-                Date date = new Date();
-                int size = arrayList.size() - 1;
-                boolean hasInfo = false;
-                while (size >= 0) {
-                    Epginfo epg = arrayList.get(size);
-                    if (epg != null && epg.startdateTime != null && epg.enddateTime != null
-                            && date.after(epg.startdateTime) && date.before(epg.enddateTime)) {
-                        tip_epg1.setText(epg.start + "-" + epg.end);
-                        if (tv_current_program_name != null) tv_current_program_name.setText(epg.title);
-                        if (size != arrayList.size() - 1) {
-                            Epginfo nextEpg = arrayList.get(size + 1);
-                            tip_epg2.setText(nextEpg.start + "-" + nextEpg.end);
-                            if (tv_next_program_name != null) tv_next_program_name.setText(nextEpg.title);
-                        } else {
-                            tip_epg2.setText(epg.end + "-23:59");
-                            if (tv_next_program_name != null) tv_next_program_name.setText("精彩节目-暂无节目预告信息");
-                        }
-                        hasInfo = true;
-                        break;
-                    } else {
-                        size--;
-                    }
-                }
-            }
-            if (epgListAdapter != null) {
-                if (currentLiveChannelItem != null) epgListAdapter.CanBack(currentLiveChannelItem.getinclude_back());
-                epgListAdapter.setNewData(arrayList);
-            }
-            updateEpgPanelState(arrayList != null && arrayList.size() > 0);
+        // 更新 EPG 显示
+        if (currentProgram != null) {
+            tip_epg1.setText("当前：" + currentProgram.title);
+            if (tvCurrentProgramName != null) tvCurrentProgramName.setText(currentProgram.title);
         } else {
-            updateEpgPanelState(false);
+            tip_epg1.setText("暂无当前节目");
+            if (tvCurrentProgramName != null) tvCurrentProgramName.setText("暂无信息");
         }
 
+        if (nextProgram != null) {
+            tip_epg2.setText("下一：" + nextProgram.title);
+            if (tvNextProgramName != null) tvNextProgramName.setText(nextProgram.title);
+        } else {
+            tip_epg2.setText("暂无下一节目");
+            if (tvNextProgramName != null) tvNextProgramName.setText("暂无信息");
+        }
+
+        // 更新线路信息
+        TextView tvSource = findViewById(R.id.tv_source);
+        if (channel_Name == null || channel_Name.getSourceNum() <= 0) {
+            if (tvSource != null) tvSource.setText("1/1");
+        } else {
+            if (tvSource != null) tvSource.setText("线路" + (channel_Name.getSourceIndex() + 1) + "/" + channel_Name.getSourceNum());
+        }
+
+        // 更新右侧顶部频道名
+        if (tv_right_top_channel_name != null) tv_right_top_channel_name.setText(channel_Name.getChannelName());
+        if (tv_right_top_epg_name != null) tv_right_top_epg_name.setText(channel_Name.getChannelName());
+
+        // 更新底部信息栏（如果显示）
+        updateBottomInfoBar();
+
+        // 处理加载动画和计时器（保留原有逻辑）
         if (countDownTimer != null) countDownTimer.cancel();
-        if (!"暂无信息".equals(tip_epg1.getText().toString())) {
+        if (!"暂无当前节目".equals(tip_epg1.getText().toString())) {
             if (ll_right_top_loading != null) ll_right_top_loading.setVisibility(View.VISIBLE);
             if (ll_epg != null && !isListOrSettingLayoutVisible()) {
                 ll_epg.setVisibility(View.VISIBLE);
@@ -1105,15 +1102,8 @@ public class LivePlayActivity extends BaseActivity {
             if (ll_epg != null) ll_epg.setVisibility(View.GONE);
         }
 
-        TextView tvSource = findViewById(R.id.tv_source);
-        if (channel_Name == null || channel_Name.getSourceNum() <= 0) {
-            if (tvSource != null) tvSource.setText("1/1");
-        } else {
-            if (tvSource != null) tvSource.setText("线路" + (channel_Name.getSourceIndex() + 1) + "/" + channel_Name.getSourceNum());
-        }
-        if (tv_right_top_channel_name != null) tv_right_top_channel_name.setText(channel_Name.getChannelName());
-        if (tv_right_top_epg_name != null) tv_right_top_epg_name.setText(channel_Name.getChannelName());
-        updateBottomInfoBar();
+        // 更新频道图标
+        updateCurrentChannelIcon();
     }
 
     private void setDefaultBottomEpg(TextView currentProgramName, TextView nextProgramName) {
@@ -2825,7 +2815,6 @@ public class LivePlayActivity extends BaseActivity {
             dataList.add(new SourceItem(name, url));
         }
 
-        // 适配器（带高亮）
         SourceAdapter adapter = new SourceAdapter(this, dataList, dialog);
         listView.setAdapter(adapter);
 
@@ -2858,13 +2847,11 @@ public class LivePlayActivity extends BaseActivity {
         dialog.show();
     }
 
-    // 内部数据类
     class SourceItem {
         String name, url;
         SourceItem(String n, String u) { name = n; url = u; }
     }
 
-    // 内部适配器（支持高亮选中项）
     class SourceAdapter extends BaseAdapter {
         private Context context;
         private List<SourceItem> data;
@@ -2931,7 +2918,6 @@ public class LivePlayActivity extends BaseActivity {
             tvName.setText(item.name);
             tvUrl.setText(item.url);
 
-            // 高亮：与当前选中的源索引对比
             int selectedIdx = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
             if (position == selectedIdx) {
                 itemLayout.setBackgroundColor(0x33FFFFFF);
@@ -2941,7 +2927,6 @@ public class LivePlayActivity extends BaseActivity {
                 tvName.setTextColor(0xFFFFFFFF);
             }
 
-            // 点击整行加载该源
             convertView.setOnClickListener(v -> {
                 loadSourceByIndex(position);
                 dialog.dismiss();
@@ -2965,7 +2950,6 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
-    // 加载指定索引的源（从SharedPreferences读取）
     private void loadSourceByIndex(int index) {
         SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
         String json = prefs.getString("source_list", "[]");
@@ -3002,7 +2986,6 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
-    // 保存源列表到 SharedPreferences
     private void saveSourceList(List<SourceItem> list) {
         JsonArray array = new JsonArray();
         for (SourceItem item : list) {
@@ -3015,7 +2998,6 @@ public class LivePlayActivity extends BaseActivity {
         prefs.edit().putString("source_list", array.toString()).apply();
     }
 
-    // 获取设备IP
     private String getDeviceIp() {
         try {
             String addr = ControlManager.get().getAddress(true);
@@ -3029,7 +3011,6 @@ public class LivePlayActivity extends BaseActivity {
         return "127.0.0.1";
     }
 
-    // 从URL提取名称
     private String extractNameFromUrl(String url) {
         try {
             Uri uri = Uri.parse(url);
