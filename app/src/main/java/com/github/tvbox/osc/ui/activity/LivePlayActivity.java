@@ -73,7 +73,7 @@ import com.github.tvbox.osc.ui.adapter.MyEpgAdapter;
 import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
 import com.github.tvbox.osc.ui.tv.widget.ViewObj;
 import com.github.tvbox.osc.util.DefaultConfig;
-import com.github.tvbox.osc.util.FileLogger;          // 新增
+import com.github.tvbox.osc.util.FileLogger;
 import com.github.tvbox.osc.util.epg.EpgManager;
 import com.github.tvbox.osc.util.EpgUtil;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
@@ -144,6 +144,7 @@ public class LivePlayActivity extends BaseActivity {
     private ProgressBar epgProgressBar;
     private TextView tvCurrentProgramName;
     private TextView tvNextProgramName;
+    private TextView tvDesc; // 新增：用于显示节目描述
     private boolean isBottomInfoBarShowing = false;
     private static final float GESTURE_EDGE_RATIO = 0.18f;
     private static final long BOTTOM_INFO_SHOW_DURATION = 5000L;
@@ -389,6 +390,7 @@ public class LivePlayActivity extends BaseActivity {
             epgProgressBar = findViewById(R.id.epg_progress_bar);
             tvCurrentProgramName = findViewById(R.id.tv_current_program_name);
             tvNextProgramName = findViewById(R.id.tv_next_program_name);
+            tvDesc = findViewById(R.id.tv_desc); // 新增，假设布局中有此 ID
             initGestureDetector();
 
             if (show) {
@@ -1049,7 +1051,7 @@ public class LivePlayActivity extends BaseActivity {
         return trimName;
     }
 
-    // ===== 修改：使用 EpgManager 获取当前/下一个节目 =====
+    // ===== 显示 EPG 信息（包含描述） =====
     @SuppressLint("SetTextI18n")
     private void showBottomEpg() {
         if (isSHIYI) return;
@@ -1064,13 +1066,22 @@ public class LivePlayActivity extends BaseActivity {
         EpgManager.EpgProgram currentProgram = manager.getCurrentProgram(channel_Name.getChannelName());
         EpgManager.EpgProgram nextProgram = manager.getNextProgram(channel_Name.getChannelName());
 
-        // 更新 EPG 显示
+        // 更新 EPG 显示（包含描述）
         if (currentProgram != null) {
             tip_epg1.setText("当前：" + currentProgram.title);
             if (tvCurrentProgramName != null) tvCurrentProgramName.setText(currentProgram.title);
+            // 设置描述
+            if (tvDesc != null) {
+                String desc = currentProgram.description != null ? currentProgram.description : "";
+                tvDesc.setText(desc);
+                tvDesc.setVisibility(View.VISIBLE);
+            }
         } else {
             tip_epg1.setText("暂无当前节目");
             if (tvCurrentProgramName != null) tvCurrentProgramName.setText("暂无信息");
+            if (tvDesc != null) {
+                tvDesc.setVisibility(View.GONE);
+            }
         }
 
         if (nextProgram != null) {
@@ -1093,7 +1104,7 @@ public class LivePlayActivity extends BaseActivity {
         if (tv_right_top_channel_name != null) tv_right_top_channel_name.setText(channel_Name.getChannelName());
         if (tv_right_top_epg_name != null) tv_right_top_epg_name.setText(channel_Name.getChannelName());
 
-        // 更新底部信息栏（如果显示）
+        // 更新底部信息栏
         updateBottomInfoBar();
 
         // 处理加载动画和计时器（保留原有逻辑）
@@ -1145,6 +1156,9 @@ public class LivePlayActivity extends BaseActivity {
         if (currentProgramName != null) currentProgramName.setText("精彩节目");
         tip_epg2.setText(timeFormat.format(nextStart.getTime()) + "-" + timeFormat.format(nextEnd.getTime()));
         if (nextProgramName != null) nextProgramName.setText("暂无节目预告信息");
+        if (tvDesc != null) {
+            tvDesc.setVisibility(View.GONE); // 默认无描述
+        }
     }
 
     private void updateCurrentChannelIcon() {
@@ -4299,11 +4313,34 @@ public class LivePlayActivity extends BaseActivity {
         if (tv_channelnum != null) tv_channelnum.setText(String.valueOf(currentLiveChannelItem.getChannelNum()));
         if (tip_chname != null) tip_chname.setText(currentLiveChannelItem.getChannelName());
 
+        // 更新 EPG 节目名称和描述
+        EpgManager manager = EpgManager.getInstance(this);
+        EpgManager.EpgProgram currentProgram = manager.getCurrentProgram(currentLiveChannelItem.getChannelName());
+        EpgManager.EpgProgram nextProgram = manager.getNextProgram(currentLiveChannelItem.getChannelName());
+
         if (tvCurrentProgramName != null) {
-            tvCurrentProgramName.setText(tip_epg1 != null ? tip_epg1.getText() : "");
+            if (currentProgram != null) {
+                tvCurrentProgramName.setText(currentProgram.title);
+            } else {
+                tvCurrentProgramName.setText("暂无信息");
+            }
         }
         if (tvNextProgramName != null) {
-            tvNextProgramName.setText(tip_epg2 != null ? tip_epg2.getText() : "");
+            if (nextProgram != null) {
+                tvNextProgramName.setText("下一：" + nextProgram.title);
+            } else {
+                tvNextProgramName.setText("下一：暂无");
+            }
+        }
+
+        // 更新描述
+        if (tvDesc != null) {
+            if (currentProgram != null && !TextUtils.isEmpty(currentProgram.description)) {
+                tvDesc.setText(currentProgram.description);
+                tvDesc.setVisibility(View.VISIBLE);
+            } else {
+                tvDesc.setVisibility(View.GONE);
+            }
         }
 
         if (tv_srcinfo != null) {
