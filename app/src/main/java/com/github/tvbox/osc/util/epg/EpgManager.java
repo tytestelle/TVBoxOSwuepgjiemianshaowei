@@ -5,10 +5,13 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.text.TextUtils;
 
 import com.github.tvbox.osc.util.FileLogger;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -16,13 +19,17 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -39,6 +46,9 @@ public class EpgManager {
     private OkHttpClient httpClient;
     private String epgUrl;
 
+    // epg_data.json 映射：epgid -> 逗号分隔的名称列表
+    private Map<String, String> epgDataMap = null;
+
     public static synchronized EpgManager getInstance(Context context) {
         if (instance == null) instance = new EpgManager(context.getApplicationContext());
         return instance;
@@ -54,8 +64,72 @@ public class EpgManager {
         db = helper.getWritableDatabase();
         epgUrl = EpgSettings.getEpgUrl(context);
         if (TextUtils.isEmpty(epgUrl)) loadDefaultEpgUrl();
+        loadEpgDataMap(); // 加载 epg_data.json 到内存
     }
 
+    // ======================== 加载 epg_data.json ========================
+    private void loadEpgDataMap() {
+        epgDataMap = new HashMap<>();
+        try {
+            InputStream is = context.getAssets().open("epg_data.json");
+            JsonObject root = JsonParser.parseReader(new InputStreamReader(is)).getAsJsonObject();
+            JsonArray epgs = root.getAsJsonArray("epgs");
+            for (int i = 0; i < epgs.size(); i++) {
+                JsonObject item = epgs.get(i).getAsJsonObject();
+                String epgid = item.get("epgid").getAsString();
+                String name = item.get("name").getAsString();
+                epgDataMap.put(epgid, name);
+            }
+            FileLogger.write("EpgManager", "加载 epg_data.json 成功，共 " + epgDataMap.size() + " 条");
+        } catch (Exception e) {
+            FileLogger.write("EpgManager", "加载 epg_data.json 失败", e);
+            // 使用空映射，后续匹配将返回 null
+        }
+    }
+
+    // ======================== 核心匹配逻辑 ========================
+    /**
+     * 根据频道名（可能包含 "HD"、"高清" 等后缀）在 epg_data.json 的 name 列表中
+     * 进行包含匹配，返回对应的 epgid。
+     */
+    private String getEpgIdByChannelName(String channelName) {
+        if (TextUtils.isEmpty(channelName) || epgDataMap == null || epgDataMap.isEmpty()) {
+            return null;
+        }
+        String trimmed = channelName.trim();
+        // 1. 精确匹配（忽略大小写）
+        for (Map.Entry<String, String> entry : epgDataMap.entrySet()) {
+            String epgId = entry.getKey();
+            String nameList = entry.getValue();
+            if (TextUtils.isEmpty(nameList)) continue;
+            String[] names = nameList.split(",");
+            for (String name : names) {
+                name = name.trim();
+                if (name.isEmpty()) continue;
+                if (trimmed.equalsIgnoreCase(name)) {
+                    return epgId;
+                }
+            }
+        }
+
+        // 2. 包含匹配（频道名包含在某个 name 中，或 name 包含在频道名中）
+        //    优先 name 包含 trimmed（例如 "驚豔成人電影台 HD" 包含 "驚豔成人電影台"）
+        for (Map.Entry<String, String> entry : epgDataMap.entrySet()) {
+            String epgId = entry.getKey();
+            String nameList = entry.getValue();
+            String[] names = nameList.split(",");
+            for (String name : names) {
+                name = name.trim();
+                if (name.isEmpty()) continue;
+                if (trimmed.contains(name) || name.contains(trimmed)) {
+                    return epgId;
+                }
+            }
+        }
+        return null;
+    }
+
+    // ======================== 加载默认 EPG URL ========================
     private void loadDefaultEpgUrl() {
         try {
             InputStream is = context.getAssets().open("configuration.json");
@@ -80,6 +154,7 @@ public class EpgManager {
         }
     }
 
+    // ======================== 刷新 EPG ========================
     public void refreshEpg(RefreshCallback callback) {
         if (TextUtils.isEmpty(epgUrl)) {
             if (callback != null) callback.onError("EPG URL 未设置");
@@ -102,6 +177,7 @@ public class EpgManager {
                     return false;
                 }
             }
+
             @Override
             protected void onPostExecute(Boolean success) {
                 if (callback != null) {
@@ -117,6 +193,7 @@ public class EpgManager {
         }.execute();
     }
 
+    // ======================== 解析 XML 并存储 ========================
     private boolean parseAndStore(String xml) {
         db.delete("programs", null, null);
         db.delete("channels", null, null);
@@ -146,7 +223,6 @@ public class EpgManager {
                             currentDisplayName = null;
                             currentIcon = null;
                         } else if ("display-name".equals(tagName) && currentChannelId != null) {
-                            // 重要：提取 display-name 文本，并注意可能包含 lang 属性，但只取文本
                             currentDisplayName = parser.nextText();
                         } else if ("icon".equals(tagName) && currentChannelId != null) {
                             currentIcon = parser.getAttributeValue(null, "src");
@@ -164,7 +240,6 @@ public class EpgManager {
                         break;
                     case XmlPullParser.END_TAG:
                         if ("channel".equals(tagName)) {
-                            // 只有 channel 结束时才插入，确保 currentDisplayName 非空
                             if (currentChannelId != null && currentDisplayName != null) {
                                 channelValues.clear();
                                 channelValues.put("channel_id", currentChannelId);
@@ -203,10 +278,10 @@ public class EpgManager {
         return count;
     }
 
-    // ========== 核心查询：频道名 → epgid → channel_id ==========
+    // ======================== 查询节目 ========================
     public List<EpgProgram> getProgramsForChannel(String channelName) {
-        // 1. 从 epg_data.json 获取 epgId
-        String epgId = EpgDataLoader.getEpgId(channelName);
+        // 1. 获取 epgId
+        String epgId = getEpgIdByChannelName(channelName);
         if (epgId == null) {
             FileLogger.write("EpgManager", "未找到 epgId: " + channelName);
             return new ArrayList<>();
@@ -215,17 +290,20 @@ public class EpgManager {
 
         // 2. 用 epgId 作为 display_name 查询 channel_id
         String channelId = null;
-        Cursor c = db.query("channels", new String[]{"channel_id"}, "display_name=?", new String[]{epgId}, null, null, null);
+        Cursor c = db.query("channels", new String[]{"channel_id", "icon"}, "display_name=?", new String[]{epgId}, null, null, null);
+        String iconUrl = null;
         if (c.moveToFirst()) {
             channelId = c.getString(0);
+            iconUrl = c.getString(1);
         }
         c.close();
 
-        // 如果找不到，尝试用 epgId 作为 channel_id 直接查询（某些 XML 中 channel id 等于 epgId）
+        // 如果找不到，尝试用 epgId 作为 channel_id 直接查询
         if (channelId == null) {
-            Cursor c2 = db.query("channels", new String[]{"channel_id"}, "channel_id=?", new String[]{epgId}, null, null, null);
+            Cursor c2 = db.query("channels", new String[]{"channel_id", "icon"}, "channel_id=?", new String[]{epgId}, null, null, null);
             if (c2.moveToFirst()) {
                 channelId = c2.getString(0);
+                iconUrl = c2.getString(1);
                 FileLogger.write("EpgManager", "通过 channel_id 找到: " + epgId);
             }
             c2.close();
@@ -238,7 +316,12 @@ public class EpgManager {
 
         FileLogger.write("EpgManager", "找到 channel_id: " + channelId);
 
-        // 3. 用 channel_id 查询节目
+        // 3. 如果有图标 URL，下载并透明化保存为 epgid.png
+        if (!TextUtils.isEmpty(iconUrl)) {
+            downloadAndProcessIcon(epgId, iconUrl);
+        }
+
+        // 4. 查询节目
         List<EpgProgram> programs = new ArrayList<>();
         Cursor cur = db.query("programs", null, "channel_id=?", new String[]{channelId}, null, null, "start_time ASC");
         while (cur.moveToNext()) {
@@ -271,18 +354,63 @@ public class EpgManager {
         return null;
     }
 
-    public String getChannelIconUrl(String channelName) {
-        String epgId = EpgDataLoader.getEpgId(channelName);
-        if (epgId == null) return null;
-        Cursor c = db.query("channels", new String[]{"icon"}, "display_name=?", new String[]{epgId}, null, null, null);
-        String icon = null;
-        if (c.moveToFirst()) {
-            icon = c.getString(0);
+    // ======================== 台标处理（透明化保存为 epgid.png） ========================
+    private void downloadAndProcessIcon(String epgId, String iconUrl) {
+        if (TextUtils.isEmpty(epgId) || TextUtils.isEmpty(iconUrl)) return;
+        File iconFile = new File(context.getCacheDir(), epgId + ".png");
+        if (iconFile.exists()) {
+            FileLogger.write("EpgManager", "台标已存在: " + iconFile.getAbsolutePath());
+            return;
         }
-        c.close();
-        return icon;
+
+        try {
+            Request request = new Request.Builder().url(iconUrl).build();
+            Response response = httpClient.newCall(request).execute();
+            if (!response.isSuccessful()) {
+                FileLogger.write("EpgManager", "台标下载失败 HTTP=" + response.code());
+                return;
+            }
+            Bitmap bitmap = BitmapFactory.decodeStream(response.body().byteStream());
+            if (bitmap == null) {
+                FileLogger.write("EpgManager", "台标解码失败");
+                return;
+            }
+
+            // 透明化处理：将白色背景（或接近白色的像素）转为透明
+            Bitmap processed = makeTransparent(bitmap);
+            FileOutputStream fos = new FileOutputStream(iconFile);
+            processed.compress(Bitmap.CompressFormat.PNG, 100, fos);
+            fos.close();
+            FileLogger.write("EpgManager", "台标已保存: " + iconFile.getAbsolutePath());
+        } catch (Exception e) {
+            FileLogger.write("EpgManager", "台标下载/处理异常", e);
+        }
     }
 
+    private Bitmap makeTransparent(Bitmap src) {
+        // 简单示例：将白色 (RGB 接近 255,255,255) 设置为透明
+        // 实际可根据需要调整阈值
+        int width = src.getWidth();
+        int height = src.getHeight();
+        Bitmap result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        int[] pixels = new int[width * height];
+        src.getPixels(pixels, 0, width, 0, 0, width, height);
+
+        for (int i = 0; i < pixels.length; i++) {
+            int color = pixels[i];
+            int r = (color >> 16) & 0xFF;
+            int g = (color >> 8) & 0xFF;
+            int b = color & 0xFF;
+            // 如果 RGB 都大于 240，视为白色，设为透明
+            if (r > 240 && g > 240 && b > 240) {
+                pixels[i] = 0x00000000; // 完全透明
+            }
+        }
+        result.setPixels(pixels, 0, width, 0, 0, width, height);
+        return result;
+    }
+
+    // ======================== 工具方法 ========================
     private Date parseXmltvTime(String time) {
         try {
             if (time.length() >= 14) {
@@ -302,6 +430,7 @@ public class EpgManager {
         return new Date();
     }
 
+    // ======================== 接口与内部类 ========================
     public interface RefreshCallback {
         void onSuccess();
         void onError(String msg);
