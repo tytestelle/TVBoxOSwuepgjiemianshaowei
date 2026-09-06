@@ -21,8 +21,10 @@ import org.xmlpull.v1.XmlPullParserFactory;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -49,12 +51,19 @@ public class EpgManager {
     // epg_data.json 映射：epgid -> 逗号分隔的名称列表
     private Map<String, String> epgDataMap = null;
 
+    // 独立映射日志的 Writer（不再回退到 FileLogger）
+    private PrintWriter mappingLogWriter;
+    private File mappingLogFile;
+
     public static synchronized EpgManager getInstance(Context context) {
         if (instance == null) instance = new EpgManager(context.getApplicationContext());
         return instance;
     }
 
     private EpgManager(Context context) {
+        // ★ 确保 FileLogger 已初始化，以便生成通用日志和获取时间戳 ★
+        FileLogger.init(context);
+
         this.context = context;
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
@@ -64,7 +73,47 @@ public class EpgManager {
         db = helper.getWritableDatabase();
         epgUrl = EpgSettings.getEpgUrl(context);
         if (TextUtils.isEmpty(epgUrl)) loadDefaultEpgUrl();
+
+        // 初始化独立映射日志（使用与通用日志相同的时间戳）
+        initMappingLog();
+
         loadEpgDataMap(); // 加载 epg_data.json 到内存
+    }
+
+    // ======================== 初始化映射日志 ========================
+    private void initMappingLog() {
+        try {
+            String timestamp = FileLogger.getStartTimestamp();
+            if (TextUtils.isEmpty(timestamp)) {
+                // 极端情况：如果 FileLogger 未初始化，则自己生成（但上面已经调用了 init）
+                timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+            }
+            File logDir = new File(context.getFilesDir(), "logs");
+            if (!logDir.exists()) logDir.mkdirs();
+            mappingLogFile = new File(logDir, "epg_mapping_" + timestamp + ".log");
+            mappingLogWriter = new PrintWriter(new FileWriter(mappingLogFile, true));
+            writeMappingLog("========== EPG 映射日志开始 ==========");
+        } catch (Exception e) {
+            e.printStackTrace();
+            // ★ 如果独立日志初始化失败，仅记录到通用日志一次，之后所有映射日志将静默丢弃
+            FileLogger.write("EpgManager", "初始化映射日志失败，映射日志将不会被记录", e);
+        }
+    }
+
+    /**
+     * 仅写入独立映射日志文件，若写入失败则静默忽略（绝不写入通用日志）
+     */
+    private void writeMappingLog(String msg) {
+        if (mappingLogWriter != null) {
+            try {
+                String time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+                mappingLogWriter.println(time + " " + msg);
+                mappingLogWriter.flush();
+            } catch (Exception e) {
+                // 静默忽略，避免污染通用日志
+            }
+        }
+        // ★ 不再回退到 FileLogger，确保通用日志不被映射信息污染 ★
     }
 
     // ======================== 加载 epg_data.json ========================
@@ -79,20 +128,20 @@ public class EpgManager {
                 String epgid = item.get("epgid").getAsString();
                 String name = item.get("name").getAsString();
                 epgDataMap.put(epgid, name);
-                FileLogger.write("EpgManager", "加载映射: " + epgid + " -> " + name);
+                // ★ 每条映射仅写入独立日志 ★
+                writeMappingLog("加载映射: " + epgid + " -> " + name);
             }
+            // ★ 摘要信息写入通用日志（仅此一条，不包含映射明细） ★
             FileLogger.write("EpgManager", "加载 epg_data.json 成功，共 " + epgDataMap.size() + " 条");
+            // 同时也可以写入独立日志（可选）
+            writeMappingLog("加载 epg_data.json 成功，共 " + epgDataMap.size() + " 条");
         } catch (Exception e) {
             FileLogger.write("EpgManager", "加载 epg_data.json 失败", e);
-            // 使用空映射，后续匹配将返回 null
+            writeMappingLog("加载 epg_data.json 失败: " + e.getMessage());
         }
     }
 
     // ======================== 核心匹配逻辑 ========================
-    /**
-     * 根据频道名（可能包含 "HD"、"高清" 等后缀）在 epg_data.json 的 name 列表中
-     * 进行包含匹配，返回对应的 epgid。
-     */
     private String getEpgIdByChannelName(String channelName) {
         if (TextUtils.isEmpty(channelName) || epgDataMap == null || epgDataMap.isEmpty()) {
             return null;
@@ -108,7 +157,8 @@ public class EpgManager {
                 name = name.trim();
                 if (name.isEmpty()) continue;
                 if (trimmed.equalsIgnoreCase(name)) {
-                    FileLogger.write("EpgManager", "精确匹配: " + trimmed + " -> " + epgId);
+                    // ★ 匹配结果仅写入独立日志 ★
+                    writeMappingLog("精确匹配: " + trimmed + " -> " + epgId);
                     return epgId;
                 }
             }
@@ -123,12 +173,13 @@ public class EpgManager {
                 name = name.trim();
                 if (name.isEmpty()) continue;
                 if (trimmed.contains(name) || name.contains(trimmed)) {
-                    FileLogger.write("EpgManager", "包含匹配: " + trimmed + " -> " + epgId + " (命中: " + name + ")");
+                    writeMappingLog("包含匹配: " + trimmed + " -> " + epgId + " (命中: " + name + ")");
                     return epgId;
                 }
             }
         }
-        FileLogger.write("EpgManager", "未找到匹配的 epgId: " + trimmed);
+        // 未匹配
+        writeMappingLog("未匹配: " + trimmed);
         return null;
     }
 
@@ -257,7 +308,6 @@ public class EpgManager {
                             } else {
                                 FileLogger.write("EpgManager", "频道数据不完整: id=" + currentChannelId + ", display_name=" + currentDisplayName);
                             }
-                            // 重置
                             currentChannelId = null;
                             currentDisplayName = null;
                             currentIcon = null;
@@ -276,7 +326,6 @@ public class EpgManager {
                             } else {
                                 FileLogger.write("EpgManager", "节目数据不完整: channel=" + currentChannelIdForProgram + ", start=" + currentStart + ", stop=" + currentStop);
                             }
-                            // 重置
                             currentChannelIdForProgram = null;
                             currentStart = null;
                             currentStop = null;
@@ -287,7 +336,7 @@ public class EpgManager {
                 }
                 eventType = parser.next();
             }
-            // 打印所有已插入的频道，用于调试
+            // 调试：打印所有已插入的频道（保留在通用日志）
             Cursor debug = db.query("channels", new String[]{"channel_id", "display_name"}, null, null, null, null, null);
             while (debug.moveToNext()) {
                 FileLogger.write("EpgManager", "DB频道: id=" + debug.getString(0) + ", display_name=" + debug.getString(1));
@@ -312,15 +361,11 @@ public class EpgManager {
     // ======================== 查询节目 ========================
     public List<EpgProgram> getProgramsForChannel(String channelName) {
         List<EpgProgram> programs = new ArrayList<>();
-        // 1. 获取 epgId
         String epgId = getEpgIdByChannelName(channelName);
         if (epgId == null) {
-            FileLogger.write("EpgManager", "未找到 epgId: " + channelName);
             return programs;
         }
-        FileLogger.write("EpgManager", "频道: " + channelName + " -> epgId: " + epgId);
 
-        // 2. 用 epgId 作为 display_name 查询 channel_id
         String channelId = null;
         String iconUrl = null;
         Cursor c = db.query("channels", new String[]{"channel_id", "icon"}, "display_name=?", new String[]{epgId}, null, null, null);
@@ -331,7 +376,6 @@ public class EpgManager {
         }
         c.close();
 
-        // 如果找不到，尝试用 epgId 作为 channel_id 直接查询
         if (channelId == null) {
             Cursor c2 = db.query("channels", new String[]{"channel_id", "icon"}, "channel_id=?", new String[]{epgId}, null, null, null);
             if (c2.moveToFirst()) {
@@ -344,23 +388,15 @@ public class EpgManager {
 
         if (channelId == null) {
             FileLogger.write("EpgManager", "未在 EPG 中找到 display_name 或 channel_id: " + epgId);
-            // 调试：打印所有 display_name
-            Cursor debug = db.query("channels", new String[]{"display_name"}, null, null, null, null, null);
-            while (debug.moveToNext()) {
-                FileLogger.write("EpgManager", "DB中的 display_name: " + debug.getString(0));
-            }
-            debug.close();
             return programs;
         }
 
         FileLogger.write("EpgManager", "找到 channel_id: " + channelId);
 
-        // 3. 如果有图标 URL，下载并透明化保存为 epgid.png
         if (!TextUtils.isEmpty(iconUrl)) {
             downloadAndProcessIcon(epgId, iconUrl);
         }
 
-        // 4. 查询节目
         Cursor cur = db.query("programs", null, "channel_id=?", new String[]{channelId}, null, null, "start_time ASC");
         while (cur.moveToNext()) {
             String start = cur.getString(cur.getColumnIndex("start_time"));
@@ -392,7 +428,7 @@ public class EpgManager {
         return null;
     }
 
-    // ======================== 台标处理（透明化保存为 epgid.png） ========================
+    // ======================== 台标处理 ========================
     private void downloadAndProcessIcon(String epgId, String iconUrl) {
         if (TextUtils.isEmpty(epgId) || TextUtils.isEmpty(iconUrl)) return;
         File iconFile = new File(context.getCacheDir(), epgId + ".png");
@@ -414,7 +450,6 @@ public class EpgManager {
                 return;
             }
 
-            // 透明化处理：将白色背景转为透明
             Bitmap processed = makeTransparent(bitmap);
             FileOutputStream fos = new FileOutputStream(iconFile);
             processed.compress(Bitmap.CompressFormat.PNG, 100, fos);
@@ -426,7 +461,6 @@ public class EpgManager {
     }
 
     private Bitmap makeTransparent(Bitmap src) {
-        // 简单示例：将白色 (RGB 接近 255,255,255) 设置为透明
         int width = src.getWidth();
         int height = src.getHeight();
         Bitmap result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -439,7 +473,7 @@ public class EpgManager {
             int g = (color >> 8) & 0xFF;
             int b = color & 0xFF;
             if (r > 240 && g > 240 && b > 240) {
-                pixels[i] = 0x00000000; // 完全透明
+                pixels[i] = 0x00000000;
             }
         }
         result.setPixels(pixels, 0, width, 0, 0, width, height);
