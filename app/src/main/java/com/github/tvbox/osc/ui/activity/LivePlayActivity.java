@@ -519,13 +519,16 @@ public class LivePlayActivity extends BaseActivity {
                 sourceNames.add(name);
             }
         }
-        liveSourceAdapter.setNewData(sourceNames);
-        int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
-        if (selected >= 0 && selected < sourceNames.size()) {
-            liveSourceAdapter.setSelectedPosition(selected);
-        } else {
-            liveSourceAdapter.setSelectedPosition(0);
+        if (liveSourceAdapter != null) {
+            liveSourceAdapter.setNewData(sourceNames);
+            int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+            if (selected >= 0 && selected < sourceNames.size()) {
+                liveSourceAdapter.setSelectedPosition(selected);
+            } else {
+                liveSourceAdapter.setSelectedPosition(0);
+            }
         }
+        android.util.Log.i("LivePlay", "refreshSourceList 源列表数量：" + sourceNames.size());
     }
 
     private void switchToSource(int position) {
@@ -2659,18 +2662,24 @@ public class LivePlayActivity extends BaseActivity {
             case 7:
                 if (position == 0) {
                     LiveSourceManageDialog dialog = new LiveSourceManageDialog(this, () -> {
-                        refreshSourceList();
-                        JsonArray list = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
-                        if (list.size() > 0) {
-                            int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
-                            if (selected >= list.size()) {
-                                Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, 0);
-                                selected = 0;
+                        runOnUiThread(() -> {
+                            refreshSourceList();
+                            showChannelList(); // 强制显示左侧面板以便查看更新后的源列表
+                            JsonArray list = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
+                            int listSize = list != null ? list.size() : 0;
+                            android.util.Log.i("LivePlay", "源列表数量：" + listSize);
+                            Toast.makeText(LivePlayActivity.this, "源列表已更新，数量：" + listSize, Toast.LENGTH_SHORT).show();
+                            if (listSize > 0) {
+                                int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+                                if (selected >= listSize) {
+                                    Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+                                    selected = 0;
+                                }
+                                switchToSource(selected);
+                            } else {
+                                setEmptyLiveChannelList();
                             }
-                            switchToSource(selected);
-                        } else {
-                            setEmptyLiveChannelList();
-                        }
+                        });
                     });
                     dialog.show();
                 } else if (position == 1) {
