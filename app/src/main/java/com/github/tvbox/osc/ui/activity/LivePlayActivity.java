@@ -73,6 +73,7 @@ import com.github.tvbox.osc.ui.adapter.MyEpgAdapter;
 import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
 import com.github.tvbox.osc.ui.tv.widget.ViewObj;
 import com.github.tvbox.osc.util.DefaultConfig;
+import com.github.tvbox.osc.util.FileLogger;          // 新增
 import com.github.tvbox.osc.util.epg.EpgManager;
 import com.github.tvbox.osc.util.EpgUtil;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
@@ -429,8 +430,14 @@ public class LivePlayActivity extends BaseActivity {
 
             if (sBar != null) {
                 sBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                    @Override public void onStopTrackingTouch(SeekBar arg0) {}
-                    @Override public void onStartTrackingTouch(SeekBar arg0) {}
+                    @Override
+                    public void onStopTrackingTouch(SeekBar arg0) {
+                    }
+
+                    @Override
+                    public void onStartTrackingTouch(SeekBar arg0) {
+                    }
+
                     @Override
                     public void onProgressChanged(SeekBar sb, int progress, boolean fromuser) {
                         if (!fromuser) return;
@@ -498,15 +505,18 @@ public class LivePlayActivity extends BaseActivity {
         liveSourceAdapter = new LiveSourceAdapter();
         mSourceListView.setAdapter(liveSourceAdapter);
         mSourceListView.setOnItemListener(new TvRecyclerView.OnItemListener() {
-            @Override public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+            @Override
+            public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
                 liveSourceAdapter.setFocusedPosition(-1);
             }
+
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
                 liveSourceAdapter.setFocusedPosition(position);
                 mHandler.removeCallbacks(mHideChannelListRun);
                 mHandler.postDelayed(mHideChannelListRun, postTimeout);
             }
+
             @Override
             public void onItemClick(TvRecyclerView parent, View itemView, int position) {
                 switchToSource(position);
@@ -562,7 +572,8 @@ public class LivePlayActivity extends BaseActivity {
         Toast.makeText(this, "加载源: " + name, Toast.LENGTH_SHORT).show();
 
         ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
-            @Override public void success() {
+            @Override
+            public void success() {
                 runOnUiThread(() -> {
                     initLiveChannelList();
                     if (liveChannelGroupAdapter != null) {
@@ -576,10 +587,15 @@ public class LivePlayActivity extends BaseActivity {
                     mHandler.postDelayed(mHideChannelListRun, 500);
                 });
             }
-            @Override public void error(String msg) {
+
+            @Override
+            public void error(String msg) {
                 runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, "加载失败: " + msg, Toast.LENGTH_SHORT).show());
             }
-            @Override public void notice(String msg) {}
+
+            @Override
+            public void notice(String msg) {
+            }
         });
     }
 
@@ -602,7 +618,7 @@ public class LivePlayActivity extends BaseActivity {
                 }
             }
         } catch (Exception e) {
-            LOG.e("safeInitSettingPanel error: " + e.getMessage());
+            FileLogger.write("LivePlay", "safeInitSettingPanel error: " + e.getMessage());
         }
     }
 
@@ -867,7 +883,7 @@ public class LivePlayActivity extends BaseActivity {
             updateEpgPanelState(false);
             return;
         }
-        LOG.i("echo-epgTagName:" + channelNameReal);
+        FileLogger.write("LivePlay", "echo-epgTagName:" + channelNameReal);
         ArrayList<Epginfo> arrayList = new ArrayList<>();
         try {
             if (isXmlEpgResponse(paramString)) {
@@ -900,7 +916,7 @@ public class LivePlayActivity extends BaseActivity {
             return false;
         }
         String fallbackUrl = buildEpgUrl(DEFAULT_EPG_ADDRESS, epgQueryNames.get(0), date, timeFormat);
-        LOG.i("echo-epg fallback default address");
+        FileLogger.write("LivePlay", "echo-epg fallback default address");
         requestEpg(fallbackUrl, date, channelNameReal, finalEpgTagName, savedEpgKey, epgQueryNames, timeFormat, epgQueryNames.size());
         return true;
     }
@@ -912,7 +928,7 @@ public class LivePlayActivity extends BaseActivity {
         }
         int nextIndex = queryIndex + 1;
         String nextUrl = buildEpgUrl(epgStringAddress, epgQueryNames.get(nextIndex), date, timeFormat);
-        LOG.i("echo-epg retry query name:" + epgQueryNames.get(nextIndex));
+        FileLogger.write("LivePlay", "echo-epg retry query name:" + epgQueryNames.get(nextIndex));
         requestEpg(nextUrl, date, channelNameReal, finalEpgTagName, savedEpgKey, epgQueryNames, timeFormat, nextIndex);
         return true;
     }
@@ -992,7 +1008,8 @@ public class LivePlayActivity extends BaseActivity {
                 SimpleDateFormat dateFormat = new SimpleDateFormat(pattern, Locale.getDefault());
                 dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8:00"));
                 return dateFormat.parse(trimText);
-            } catch (ParseException ignored) {}
+            } catch (ParseException ignored) {
+            }
         }
         SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         dayFormat.setTimeZone(TimeZone.getTimeZone("GMT+8:00"));
@@ -1003,7 +1020,8 @@ public class LivePlayActivity extends BaseActivity {
                 SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd " + pattern, Locale.getDefault());
                 dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8:00"));
                 return dateFormat.parse(dayText + " " + trimText);
-            } catch (ParseException ignored) {}
+            } catch (ParseException ignored) {
+            }
         }
         return null;
     }
@@ -1086,7 +1104,9 @@ public class LivePlayActivity extends BaseActivity {
                 ll_epg.setVisibility(View.VISIBLE);
             }
             countDownTimer = new CountDownTimer(postTimeout, 1000) {
-                public void onTick(long j) {}
+                public void onTick(long j) {
+                }
+
                 public void onFinish() {
                     if (ll_right_top_loading != null) ll_right_top_loading.setVisibility(View.GONE);
                     if (ll_right_top_huikan != null) ll_right_top_huikan.setVisibility(View.GONE);
@@ -1407,7 +1427,8 @@ public class LivePlayActivity extends BaseActivity {
         super.onPause();
         try {
             unregisterReceiver(liveRefreshReceiver);
-        } catch (Exception e) { }
+        } catch (Exception e) {
+        }
         if (mVideoView != null && !exitingLivePlay) {
             mVideoView.pause();
         }
@@ -1418,7 +1439,8 @@ public class LivePlayActivity extends BaseActivity {
         super.onDestroy();
         try {
             unregisterReceiver(liveRefreshReceiver);
-        } catch (Exception e) { }
+        } catch (Exception e) {
+        }
         Hawk.put(HawkConfig.PLAYER_IS_LIVE, false);
         hideSwitchChannelSnapshot();
         mHandler.removeCallbacks(mLoadEpgRun);
@@ -1697,7 +1719,7 @@ public class LivePlayActivity extends BaseActivity {
 
         if (livesOBJ.has("catchup") && livesOBJ.get("catchup").isJsonObject()) {
             catchup = livesOBJ.getAsJsonObject("catchup");
-            LOG.i("echo-catchup :" + catchup.toString());
+            FileLogger.write("LivePlay", "echo-catchup :" + catchup.toString());
         }
         if (livesOBJ.has("logo")) {
             logoUrl = livesOBJ.get("logo").getAsString();
@@ -1714,7 +1736,7 @@ public class LivePlayActivity extends BaseActivity {
                 } else {
                     ext = DefaultConfig.safeJsonString(livesOBJ, "ext", "");
                 }
-                LOG.i("echo-ext:" + ext);
+                FileLogger.write("LivePlay", "echo-ext:" + ext);
                 if (!ext.isEmpty()) py_jar = py_jar + "?extend=" + ext;
             }
             ApiConfig.get().setLiveJar(py_jar);
@@ -1803,7 +1825,8 @@ public class LivePlayActivity extends BaseActivity {
         if (parts.length == 2 && !TextUtils.isEmpty(parts[0])) {
             try {
                 replayUrl = replayUrl.replaceAll(parts[0], parts[1]);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
         int queryIndex = replayUrl.indexOf('?');
         if (queryIndex >= 0 && queryIndex < replayUrl.length() - 1) source = source.replace("?", "&");
@@ -1854,7 +1877,8 @@ public class LivePlayActivity extends BaseActivity {
             Bitmap bitmap = null;
             try {
                 bitmap = mVideoView.doScreenShot();
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
             if (bitmap != null) {
                 switchChannelSnapshotImage.setImageBitmap(bitmap);
                 switchChannelSnapshotImage.setVisibility(View.VISIBLE);
@@ -1926,7 +1950,7 @@ public class LivePlayActivity extends BaseActivity {
         if (backcontroller != null) backcontroller.setVisibility(View.GONE);
         if (ll_right_top_huikan != null) ll_right_top_huikan.setVisibility(View.GONE);
         if (mVideoView != null) {
-            if (liveChannelHeader() != null) LOG.i("echo-" + liveChannelHeader().toString());
+            if (liveChannelHeader() != null) FileLogger.write("LivePlay", "echo-" + liveChannelHeader().toString());
             if (showPreviousFrame) {
                 showSwitchChannelSnapshot();
             } else {
@@ -2110,12 +2134,14 @@ public class LivePlayActivity extends BaseActivity {
             public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
                 if (epgListAdapter != null) epgListAdapter.setFocusedEpgIndex(-1);
             }
+
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
                 mHandler.removeCallbacks(mHideChannelListRun);
                 mHandler.postDelayed(mHideChannelListRun, postTimeout);
                 if (epgListAdapter != null) epgListAdapter.setFocusedEpgIndex(position);
             }
+
             @Override
             public void onItemClick(TvRecyclerView parent, View itemView, int position) {
                 clickEpgItem(position);
@@ -2158,9 +2184,9 @@ public class LivePlayActivity extends BaseActivity {
             isSHIYI = true;
             shiyiUrl = buildCatchupUrl(shiyiUrl, selectedData);
             if (TextUtils.isEmpty(shiyiUrl)) return;
-            LOG.i("echo-回看地址playUrl :" + shiyiUrl);
+            FileLogger.write("LivePlay", "echo-回看地址playUrl :" + shiyiUrl);
             playUrl = shiyiUrl;
-            if (liveChannelHeader() != null) LOG.i("echo-liveWebHeader :" + liveChannelHeader().toString());
+            if (liveChannelHeader() != null) FileLogger.write("LivePlay", "echo-liveWebHeader :" + liveChannelHeader().toString());
             mVideoView.setUrl(playUrl, liveChannelHeader());
             mVideoView.start();
             epgListAdapter.setShiyiSelection(position, true, timeFormat.format(date));
@@ -2187,7 +2213,7 @@ public class LivePlayActivity extends BaseActivity {
         LiveDayListGroup daylist = new LiveDayListGroup();
         Date newday = new Date((nowday.getTime()));
         String day = formatDate1.format(newday);
-        LOG.i("echo-date" + day);
+        FileLogger.write("LivePlay", "echo-date" + day);
         daylist.setGroupIndex(0);
         daylist.setGroupName(day);
         liveDayList.add(daylist);
@@ -2231,6 +2257,7 @@ public class LivePlayActivity extends BaseActivity {
                 showChannelList();
                 return true;
             }
+
             @Override
             public void longPress() {
                 if (isBack) {
@@ -2239,6 +2266,7 @@ public class LivePlayActivity extends BaseActivity {
                     showSettingGroup();
                 }
             }
+
             @Override
             public void playStateChanged(int playState) {
                 mHandler.removeCallbacks(mConnectTimeoutChangeSourceRun);
@@ -2268,10 +2296,11 @@ public class LivePlayActivity extends BaseActivity {
                         mHandler.postDelayed(mConnectTimeoutChangeSourceRun, (Hawk.get(HawkConfig.LIVE_CONNECT_TIMEOUT, 1) + 1) * 5000L);
                         break;
                     default:
-                        LOG.i("echo-Unexpected live_play state: " + playState);
+                        FileLogger.write("LivePlay", "echo-Unexpected live_play state: " + playState);
                         break;
                 }
             }
+
             @Override
             public void changeSource(int direction) {
                 if (direction > 0) {
@@ -2339,11 +2368,15 @@ public class LivePlayActivity extends BaseActivity {
             }
         });
         mChannelGroupView.setOnItemListener(new TvRecyclerView.OnItemListener() {
-            @Override public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {}
+            @Override
+            public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+            }
+
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
                 selectChannelGroup(position, true, -1);
             }
+
             @Override
             public void onItemClick(TvRecyclerView parent, View itemView, int position) {
                 if (isNeedInputPassword(position)) {
@@ -2407,13 +2440,17 @@ public class LivePlayActivity extends BaseActivity {
             }
         });
         mLiveChannelView.setOnItemListener(new TvRecyclerView.OnItemListener() {
-            @Override public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {}
+            @Override
+            public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+            }
+
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
                 if (position < 0) return;
                 if (liveChannelGroupAdapter != null) liveChannelGroupAdapter.setFocusedGroupIndex(-1);
                 if (liveChannelItemAdapter != null) liveChannelItemAdapter.setFocusedChannelIndex(position);
             }
+
             @Override
             public void onItemClick(TvRecyclerView parent, View itemView, int position) {
                 clickLiveChannel(position);
@@ -2450,12 +2487,18 @@ public class LivePlayActivity extends BaseActivity {
             }
         });
         mSettingGroupView.setOnItemListener(new TvRecyclerView.OnItemListener() {
-            @Override public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {}
+            @Override
+            public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+            }
+
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
                 selectVisibleSettingGroup(position, true);
             }
-            @Override public void onItemClick(TvRecyclerView parent, View itemView, int position) {}
+
+            @Override
+            public void onItemClick(TvRecyclerView parent, View itemView, int position) {
+            }
         });
         liveSettingGroupAdapter.setOnItemClickListener((adapter, view, position) -> {
             FastClickCheckUtil.check(view);
@@ -2535,7 +2578,10 @@ public class LivePlayActivity extends BaseActivity {
             }
         });
         mSettingItemView.setOnItemListener(new TvRecyclerView.OnItemListener() {
-            @Override public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {}
+            @Override
+            public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+            }
+
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
                 if (position < 0) return;
@@ -2544,6 +2590,7 @@ public class LivePlayActivity extends BaseActivity {
                 mHandler.removeCallbacks(mHideSettingLayoutRun);
                 mHandler.postDelayed(mHideSettingLayoutRun, postTimeout);
             }
+
             @Override
             public void onItemClick(TvRecyclerView parent, View itemView, int position) {
                 clickSettingItem(position);
@@ -2642,13 +2689,16 @@ public class LivePlayActivity extends BaseActivity {
                 HistoryHelper.setLiveApiHistory(value);
                 ApiConfig.get().refreshLiveApiHistoryItems();
                 ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
-                    @Override public void success() {
+                    @Override
+                    public void success() {
                         mHandler.post(() -> {
                             if (requestId != liveConfigRequestId || isFinishing()) return;
                             refreshLiveChannelListAndPlay(configChannelName, configSourceIndex);
                         });
                     }
-                    @Override public void error(String msg) {
+
+                    @Override
+                    public void error(String msg) {
                         mHandler.post(() -> {
                             if (requestId != liveConfigRequestId || isFinishing()) return;
                             if (mVideoView != null) mVideoView.release();
@@ -2657,7 +2707,9 @@ public class LivePlayActivity extends BaseActivity {
                             Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show();
                         });
                     }
-                    @Override public void notice(String msg) {
+
+                    @Override
+                    public void notice(String msg) {
                         mHandler.post(() -> {
                             if (requestId != liveConfigRequestId || isFinishing()) return;
                             Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show();
@@ -2693,6 +2745,7 @@ public class LivePlayActivity extends BaseActivity {
                                 getEpg(new Date());
                             }
                         }
+
                         @Override
                         public void onError(String msg) {
                             Toast.makeText(LivePlayActivity.this, "EPG 更新失败: " + msg, Toast.LENGTH_SHORT).show();
@@ -2861,7 +2914,11 @@ public class LivePlayActivity extends BaseActivity {
 
     class SourceItem {
         String name, url;
-        SourceItem(String n, String u) { name = n; url = u; }
+
+        SourceItem(String n, String u) {
+            name = n;
+            url = u;
+        }
     }
 
     class SourceAdapter extends BaseAdapter {
@@ -2875,9 +2932,20 @@ public class LivePlayActivity extends BaseActivity {
             this.dialog = dialog;
         }
 
-        @Override public int getCount() { return data.size(); }
-        @Override public Object getItem(int position) { return data.get(position); }
-        @Override public long getItemId(int position) { return position; }
+        @Override
+        public int getCount() {
+            return data.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return data.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
@@ -2976,7 +3044,8 @@ public class LivePlayActivity extends BaseActivity {
         updateCurrentSourceName(name);
 
         ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
-            @Override public void success() {
+            @Override
+            public void success() {
                 runOnUiThread(() -> {
                     initLiveChannelList();
                     if (liveChannelGroupAdapter != null) {
@@ -2989,10 +3058,14 @@ public class LivePlayActivity extends BaseActivity {
                     Toast.makeText(LivePlayActivity.this, "已加载：" + name, Toast.LENGTH_SHORT).show();
                 });
             }
-            @Override public void error(String msg) {
+
+            @Override
+            public void error(String msg) {
                 runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, "加载失败：" + msg, Toast.LENGTH_SHORT).show());
             }
-            @Override public void notice(String msg) {
+
+            @Override
+            public void notice(String msg) {
                 runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
             }
         });
@@ -3019,7 +3092,9 @@ public class LivePlayActivity extends BaseActivity {
                 if (colon > 0) return addr.substring(0, colon);
                 return addr;
             }
-        } catch (Exception e) { /* ignore */ }
+        } catch (Exception e) {
+            /* ignore */
+        }
         return "127.0.0.1";
     }
 
@@ -3031,7 +3106,8 @@ public class LivePlayActivity extends BaseActivity {
                 String[] parts = host.split("\\.");
                 return parts.length > 0 ? parts[0] : "直播";
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
         return "直播";
     }
 
@@ -3047,20 +3123,25 @@ public class LivePlayActivity extends BaseActivity {
         String cfgChannelName = getPreferredLiveRefreshChannelName();
         int cfgSourceIndex = getPreferredLiveRefreshSourceIndex();
         ApiConfig.get().loadLiveConfig(true, new ApiConfig.LoadConfigCallback() {
-            @Override public void success() {
+            @Override
+            public void success() {
                 mHandler.post(() -> {
                     if (reqId != liveConfigRequestId || isFinishing()) return;
                     refreshLiveChannelListAndPlay(cfgChannelName, cfgSourceIndex);
                     Toast.makeText(LivePlayActivity.this, "订阅更新成功", Toast.LENGTH_SHORT).show();
                 });
             }
-            @Override public void error(String msg) {
+
+            @Override
+            public void error(String msg) {
                 mHandler.post(() -> {
                     if (reqId != liveConfigRequestId || isFinishing()) return;
                     Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show();
                 });
             }
-            @Override public void notice(String msg) {
+
+            @Override
+            public void notice(String msg) {
                 mHandler.post(() -> {
                     if (reqId != liveConfigRequestId || isFinishing()) return;
                     Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show();
@@ -3136,7 +3217,8 @@ public class LivePlayActivity extends BaseActivity {
         loadingLiveConfigOnEnter = true;
         showLoading();
         ApiConfig.get().loadLiveConfig(true, new ApiConfig.LoadConfigCallback() {
-            @Override public void success() {
+            @Override
+            public void success() {
                 mHandler.post(() -> {
                     loadingLiveConfigOnEnter = false;
                     initLiveChannelList();
@@ -3144,13 +3226,17 @@ public class LivePlayActivity extends BaseActivity {
                     safeInitSettingPanel();
                 });
             }
-            @Override public void error(String msg) {
+
+            @Override
+            public void error(String msg) {
                 mHandler.post(() -> {
                     loadingLiveConfigOnEnter = false;
                     setEmptyLiveChannelList();
                 });
             }
-            @Override public void notice(String msg) {
+
+            @Override
+            public void notice(String msg) {
                 mHandler.post(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
             }
         });
@@ -3174,7 +3260,7 @@ public class LivePlayActivity extends BaseActivity {
             showLoading();
         }
 
-        LOG.i("echo-live-url:" + url);
+        FileLogger.write("LivePlay", "echo-live-url:" + url);
 
         if (url.contains(".py") || url.contains(".js")) {
             String finalUrl = url;
@@ -3220,6 +3306,7 @@ public class LivePlayActivity extends BaseActivity {
                 public String convertResponse(okhttp3.Response response) throws Throwable {
                     return response.body() != null ? response.body().string() : "";
                 }
+
                 @Override
                 public void onSuccess(Response<String> response) {
                     if (response.body() == null) {
@@ -3236,6 +3323,7 @@ public class LivePlayActivity extends BaseActivity {
                     final ArrayList<LiveChannelGroup> loadedGroups = new ArrayList<>(list);
                     mHandler.post(() -> applyLiveChannelGroups(loadedGroups));
                 }
+
                 @Override
                 public void onError(Response<String> response) {
                     mHandler.post(() -> setEmptyLiveChannelList());
@@ -3290,16 +3378,22 @@ public class LivePlayActivity extends BaseActivity {
             if (!url.equals(Hawk.get(HawkConfig.LIVE_API_URL, ""))) {
                 Hawk.put(HawkConfig.LIVE_API_URL, url);
                 ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
-                    @Override public void success() {
+                    @Override
+                    public void success() {
                         runOnUiThread(() -> {
                             initLiveChannelList();
                             continueInitLiveState(lastChannelName, sourceIndex);
                         });
                     }
-                    @Override public void error(String msg) {
+
+                    @Override
+                    public void error(String msg) {
                         runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, "加载源失败: " + msg, Toast.LENGTH_SHORT).show());
                     }
-                    @Override public void notice(String msg) {}
+
+                    @Override
+                    public void notice(String msg) {
+                    }
                 });
                 return;
             }
@@ -3609,6 +3703,7 @@ public class LivePlayActivity extends BaseActivity {
                 if (tvLeftChannelListLayout != null && tvLeftChannelListLayout.getVisibility() == View.VISIBLE)
                     mHandler.postDelayed(mHideChannelListRun, postTimeout);
             }
+
             @Override
             public void onCancel() {
                 if (tvLeftChannelListLayout != null && tvLeftChannelListLayout.getVisibility() == View.VISIBLE) {
@@ -3819,12 +3914,14 @@ public class LivePlayActivity extends BaseActivity {
         String trimDate = dateText.trim();
         try {
             return new SimpleDateFormat("yyyyMMddHHmmss Z", Locale.getDefault()).parse(trimDate);
-        } catch (ParseException ignored) {}
+        } catch (ParseException ignored) {
+        }
         try {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
             dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8:00"));
             return dateFormat.parse(trimDate);
-        } catch (ParseException ignored) {}
+        } catch (ParseException ignored) {
+        }
         return null;
     }
 
@@ -3845,9 +3942,17 @@ public class LivePlayActivity extends BaseActivity {
     public static long getTime(String startTime, String endTime) {
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         long eTime = 0;
-        try { eTime = df.parse(endTime).getTime(); } catch (ParseException e) { e.printStackTrace(); }
+        try {
+            eTime = df.parse(endTime).getTime();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
         long sTime = 0;
-        try { sTime = df.parse(startTime).getTime(); } catch (ParseException e) { e.printStackTrace(); }
+        try {
+            sTime = df.parse(startTime).getTime();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
         return (eTime - sTime) / 1000;
     }
 
@@ -3909,8 +4014,14 @@ public class LivePlayActivity extends BaseActivity {
 
         if (sBar != null) {
             sBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                @Override public void onStopTrackingTouch(SeekBar arg0) {}
-                @Override public void onStartTrackingTouch(SeekBar arg0) {}
+                @Override
+                public void onStopTrackingTouch(SeekBar arg0) {
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar arg0) {
+                }
+
                 @Override
                 public void onProgressChanged(SeekBar sb, int progress, boolean fromuser) {
                     if (fromuser && countDownTimer3 != null && mVideoView != null) {
@@ -3954,13 +4065,16 @@ public class LivePlayActivity extends BaseActivity {
 
         if (countDownTimer3 == null) {
             countDownTimer3 = new CountDownTimer(postTimeout, 1000) {
-                @Override public void onTick(long arg0) {
+                @Override
+                public void onTick(long arg0) {
                     if (mVideoView != null && sBar != null) {
                         sBar.setProgress(safeTimeMs(mVideoView.getCurrentPosition()));
                         if (tv_currentpos != null) tv_currentpos.setText(durationToString(safeTimeMs(mVideoView.getCurrentPosition())));
                     }
                 }
-                @Override public void onFinish() {
+
+                @Override
+                public void onFinish() {
                     if (backcontroller != null && backcontroller.getVisibility() == View.VISIBLE) {
                         backcontroller.setVisibility(View.GONE);
                     }
@@ -4039,20 +4153,24 @@ public class LivePlayActivity extends BaseActivity {
                 handleSingleTap(e);
                 return true;
             }
+
             @Override
             public void onLongPress(MotionEvent e) {
                 handleLongPress(e);
             }
+
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
                 handleFling(e1, e2, velocityX, velocityY);
                 return true;
             }
+
             @Override
             public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
                 handleScroll(e1, e2, distanceX, distanceY);
                 return true;
             }
+
             @Override
             public boolean onDoubleTap(MotionEvent e) {
                 if (mVideoView != null) {
