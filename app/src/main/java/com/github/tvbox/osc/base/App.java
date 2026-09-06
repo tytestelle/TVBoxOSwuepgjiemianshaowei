@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Application;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;          // 新增导入，用于输出日志
 import android.widget.Toast;
 import java.io.File;
 import java.io.FileWriter;
@@ -32,7 +33,7 @@ import com.github.catvod.crawler.JsLoader;
 import me.jessyan.autosize.AutoSizeConfig;
 import me.jessyan.autosize.unit.Subunits;
 
-// 修正 EPG 相关导入，使用正确的包名
+// EPG 相关导入
 import com.github.tvbox.osc.util.epg.EpgDataLoader;
 import com.github.tvbox.osc.util.epg.EpgManager;
 
@@ -117,18 +118,23 @@ public class App extends MultiDexApplication {
         safeInit("QuickJSLoader", new Runnable() { @Override public void run() { QuickJSLoader.init(); } });
         safeInit("cleanPlayerCache", new Runnable() { @Override public void run() { FileUtils.cleanPlayerCache(); } });
 
-        // ========== 新增 EPG 初始化（6.1） ==========
-        safeInit("Epg", new Runnable() {
-            @Override
-            public void run() {
-                // 加载 epg_data.json 映射
-                EpgDataLoader.load(App.this);
-                // 初始化 EPG 管理器
-                EpgManager.getInstance(App.this);
-                // 首次下载 EPG（可传 null 或自定义回调）
-                EpgManager.getInstance(App.this).refreshEpg(null);
-            }
-        });
+        // ========== 新增 EPG 初始化并添加日志（按用户要求修改） ==========
+        try {
+            EpgDataLoader.load(this);
+            Log.i("Epg", "EpgDataLoader 加载完成");
+            EpgManager.getInstance(this).refreshEpg(new EpgManager.RefreshCallback() {
+                @Override
+                public void onSuccess() {
+                    Log.i("Epg", "EPG 刷新成功");
+                }
+                @Override
+                public void onError(String msg) {
+                    Log.e("Epg", "EPG 刷新失败: " + msg);
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         // ========== 新增结束 ==========
     }
 
