@@ -47,7 +47,7 @@ import okhttp3.Dns;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.dnsoverhttps.DnsOverHttps;
-import okhttp3.internal.Version;
+// import okhttp3.internal.Version;  // 已删除，因无法访问
 import xyz.doikki.videoplayer.exo.ExoMediaSourceHelper;
 
 
@@ -339,7 +339,7 @@ public class OkGoHelper {
             th.printStackTrace();
         }
 
-        HttpHeaders.setUserAgent(Version.userAgent());
+        // HttpHeaders.setUserAgent(Version.userAgent()); // 已移除，因 okhttp3.internal.Version 不可访问
 
         OkHttpClient okHttpClient = builder.build();
         OkGo.getInstance().setOkHttpClient(okHttpClient);
@@ -383,7 +383,7 @@ public class OkGoHelper {
             th.printStackTrace();
         }
 
-        HttpHeaders.setUserAgent(Version.userAgent());
+        // HttpHeaders.setUserAgent(Version.userAgent()); // 已移除，因 okhttp3.internal.Version 不可访问
 
         OkHttpClient okHttpClient = builder.build();
         OkGo.getInstance().setOkHttpClient(okHttpClient);
