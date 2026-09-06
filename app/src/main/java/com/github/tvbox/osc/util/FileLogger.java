@@ -1,7 +1,6 @@
 package com.github.tvbox.osc.util;
 
 import android.content.Context;
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
