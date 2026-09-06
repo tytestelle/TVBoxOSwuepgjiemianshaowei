@@ -2703,99 +2703,109 @@ public class LivePlayActivity extends BaseActivity {
 
     // ========== 新增源管理对话框（完全重写） ==========
     private void showSourceManageDialog() {
-        // 使用 AlertDialog 构建，但内容用 ScrollView 包裹以防屏幕小
+        // 构建对话框
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("源管理");
+        builder.setTitle("列表订阅");
 
+        // 主布局（仿目标样式）
         LinearLayout mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.VERTICAL);
-        mainLayout.setPadding(30, 20, 30, 20);
+        mainLayout.setPadding(50, 30, 50, 30);
+        mainLayout.setBackgroundColor(0xFF1A1A1A); // 深色背景
 
-        // 设备信息
+        // 设备地址（二维码提示）
         TextView deviceInfo = new TextView(this);
         String ip = getDeviceIp();
         String port = "9978";
-        deviceInfo.setText("设备地址：http://" + ip + ":" + port + "/");
-        deviceInfo.setTextColor(0xFFFFFFFF);
+        String content = "http://" + ip + ":" + port + "/";
+        deviceInfo.setText("扫码输入（点击二维码查看说明）\n" + content);
+        deviceInfo.setTextColor(0xFFAAAAAA);
         deviceInfo.setTextSize(13);
-        deviceInfo.setPadding(0, 0, 0, 15);
+        deviceInfo.setGravity(Gravity.CENTER);
+        deviceInfo.setPadding(0, 0, 0, 20);
         mainLayout.addView(deviceInfo);
 
-        // 源列表（固定高度 200dp）
+        // 源列表（带高亮）
         ListView listView = new ListView(this);
         listView.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 200));
+                ViewGroup.LayoutParams.MATCH_PARENT, 350));
         listView.setDividerHeight(2);
-        listView.setDivider(new android.graphics.drawable.ColorDrawable(0x44FFFFFF));
+        listView.setDivider(new android.graphics.drawable.ColorDrawable(0x33FFFFFF));
+        listView.setBackgroundColor(0xFF2A2A2A);
         mainLayout.addView(listView);
 
-        // 输入行：名称 + 地址（水平）
+        // 输入行（名称 + 地址 + 确定）
         LinearLayout inputRow = new LinearLayout(this);
         inputRow.setOrientation(LinearLayout.HORIZONTAL);
-        inputRow.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         inputRow.setPadding(0, 16, 0, 0);
 
         EditText nameInput = new EditText(this);
-        nameInput.setHint("名称");
+        nameInput.setHint("名称（选填）");
         nameInput.setTextColor(0xFFFFFFFF);
         nameInput.setHintTextColor(0xFF888888);
-        nameInput.setBackgroundColor(0x33FFFFFF);
-        nameInput.setPadding(10, 10, 10, 10);
-        nameInput.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        nameInput.setBackgroundColor(0xFF333333);
+        nameInput.setPadding(12, 10, 12, 10);
+        LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        nameLp.setMargins(0, 0, 8, 0);
+        nameInput.setLayoutParams(nameLp);
         inputRow.addView(nameInput);
 
         EditText urlInput = new EditText(this);
-        urlInput.setHint("地址");
+        urlInput.setHint("地址（点击左侧提示按钮配置headers）");
         urlInput.setTextColor(0xFFFFFFFF);
         urlInput.setHintTextColor(0xFF888888);
-        urlInput.setBackgroundColor(0x33FFFFFF);
-        urlInput.setPadding(10, 10, 10, 10);
-        urlInput.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
+        urlInput.setBackgroundColor(0xFF333333);
+        urlInput.setPadding(12, 10, 12, 10);
+        LinearLayout.LayoutParams urlLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2);
+        urlLp.setMargins(0, 0, 8, 0);
+        urlInput.setLayoutParams(urlLp);
         inputRow.addView(urlInput);
 
         Button btnAdd = new Button(this);
         btnAdd.setText("确定");
         btnAdd.setBackgroundColor(0xFF03DAC5);
         btnAdd.setTextColor(0xFF000000);
+        btnAdd.setPadding(20, 10, 20, 10);
         inputRow.addView(btnAdd);
-
         mainLayout.addView(inputRow);
 
-        // 关闭按钮
+        // 关闭按钮（放在底部）
         Button btnClose = new Button(this);
         btnClose.setText("关闭");
         btnClose.setBackgroundColor(0x66FFFFFF);
         btnClose.setTextColor(0xFFFFFFFF);
+        btnClose.setPadding(0, 16, 0, 0);
         btnClose.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        btnClose.setPadding(0, 16, 0, 0);
         mainLayout.addView(btnClose);
 
         builder.setView(mainLayout);
         AlertDialog dialog = builder.create();
 
-        // 加载数据
+        // 适配器数据
         SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
         String json = prefs.getString("source_list", "[]");
         JsonArray sourceArray = JsonParser.parseString(json).getAsJsonArray();
         List<SourceItem> dataList = new ArrayList<>();
+        int selectedIndex = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
         for (int i = 0; i < sourceArray.size(); i++) {
             JsonObject obj = sourceArray.get(i).getAsJsonObject();
-            dataList.add(new SourceItem(
-                    obj.has("name") ? obj.get("name").getAsString() : "",
-                    obj.has("url") ? obj.get("url").getAsString() : ""
-            ));
+            String name = obj.has("name") ? obj.get("name").getAsString() : "";
+            String url = obj.has("url") ? obj.get("url").getAsString() : "";
+            boolean isSelected = (i == selectedIndex && i < sourceArray.size());
+            dataList.add(new SourceItem(name, url, isSelected));
         }
 
+        // 创建适配器，传入 Context (this)
         SourceAdapter adapter = new SourceAdapter(this, dataList, dialog);
         listView.setAdapter(adapter);
 
+        // 添加按钮
         btnAdd.setOnClickListener(v -> {
             String name = nameInput.getText().toString().trim();
             String url = urlInput.getText().toString().trim();
             if (TextUtils.isEmpty(url)) {
-                Toast.makeText(this, "请输入地址", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "地址不能为空", Toast.LENGTH_SHORT).show();
                 return;
             }
             if (TextUtils.isEmpty(name)) {
@@ -2808,26 +2818,35 @@ public class LivePlayActivity extends BaseActivity {
                     return;
                 }
             }
-            dataList.add(new SourceItem(name, url));
+            // 新增的源默认不选中
+            dataList.add(new SourceItem(name, url, false));
             adapter.notifyDataSetChanged();
             saveSourceList(dataList);
             nameInput.setText("");
             urlInput.setText("");
             Toast.makeText(this, "添加成功", Toast.LENGTH_SHORT).show();
+            // 刷新左侧源列表
             refreshSourceList();
         });
 
+        // 关闭按钮
         btnClose.setOnClickListener(v -> dialog.dismiss());
+
         dialog.show();
     }
 
-    // 辅助数据类
+    // 数据类增加 isSelected 字段
     class SourceItem {
         String name, url;
-        SourceItem(String n, String u) { name = n; url = u; }
+        boolean isSelected;
+        SourceItem(String n, String u, boolean sel) {
+            name = n;
+            url = u;
+            isSelected = sel;
+        }
     }
 
-    // 修正后的 SourceAdapter
+    // 修正后的 SourceAdapter（增加点击加载功能）
     class SourceAdapter extends BaseAdapter {
         private Context context;
         private List<SourceItem> data;
@@ -2849,36 +2868,39 @@ public class LivePlayActivity extends BaseActivity {
             if (convertView == null) {
                 itemLayout = new LinearLayout(parent.getContext());
                 itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-                itemLayout.setPadding(12, 12, 12, 12);
-                itemLayout.setBackgroundColor(0x33FFFFFF);
+                itemLayout.setPadding(16, 16, 16, 16);
+                itemLayout.setBackgroundColor(0x00000000);
 
                 TextView tvName = new TextView(parent.getContext());
                 tvName.setTextColor(0xFFFFFFFF);
-                tvName.setTextSize(15);
-                tvName.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+                tvName.setTextSize(16);
+                tvName.setTypeface(null, android.graphics.Typeface.BOLD);
+                LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+                tvName.setLayoutParams(nameLp);
                 itemLayout.addView(tvName);
 
                 TextView tvUrl = new TextView(parent.getContext());
                 tvUrl.setTextColor(0xFFAAAAAA);
                 tvUrl.setTextSize(12);
-                tvUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
+                LinearLayout.LayoutParams urlLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2);
+                tvUrl.setLayoutParams(urlLp);
                 itemLayout.addView(tvUrl);
 
                 // 复制
                 TextView btnCopy = new TextView(parent.getContext());
                 btnCopy.setText("复制");
-                btnCopy.setTextColor(0xFFFFFFFF);
+                btnCopy.setTextColor(0xFFAAAAAA);
                 btnCopy.setBackgroundColor(0x33666666);
-                btnCopy.setPadding(8, 4, 8, 4);
+                btnCopy.setPadding(12, 6, 12, 6);
                 btnCopy.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 itemLayout.addView(btnCopy);
 
                 // 删除
                 TextView btnDelete = new TextView(parent.getContext());
                 btnDelete.setText("删除");
-                btnDelete.setTextColor(0xFFFF0000);
+                btnDelete.setTextColor(0xFFFF6666);
                 btnDelete.setBackgroundColor(0x33666666);
-                btnDelete.setPadding(8, 4, 8, 4);
+                btnDelete.setPadding(12, 6, 12, 6);
                 btnDelete.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 itemLayout.addView(btnDelete);
 
@@ -2895,6 +2917,60 @@ public class LivePlayActivity extends BaseActivity {
 
             tvName.setText(item.name);
             tvUrl.setText(item.url);
+
+            // 高亮选中的项
+            if (item.isSelected) {
+                itemLayout.setBackgroundColor(0x33FFFFFF);
+                tvName.setTextColor(0xFF03DAC5);
+            } else {
+                itemLayout.setBackgroundColor(0x00000000);
+                tvName.setTextColor(0xFFFFFFFF);
+            }
+
+            // 点击整个条目加载该源
+            itemLayout.setOnClickListener(v -> {
+                // 清除所有选中状态
+                for (SourceItem si : data) {
+                    si.isSelected = false;
+                }
+                item.isSelected = true;
+                notifyDataSetChanged();
+
+                // 保存并加载该源
+                String url = item.url;
+                String name = item.name;
+                Hawk.put(HawkConfig.LIVE_API_URL, url);
+                int idx = data.indexOf(item);
+                Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, idx);
+                updateCurrentSourceName(name);
+                // 刷新左侧源列表
+                refreshSourceList();
+
+                // 加载直播
+                ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
+                    @Override public void success() {
+                        runOnUiThread(() -> {
+                            initLiveChannelList();
+                            if (liveChannelGroupAdapter != null) {
+                                liveChannelGroupAdapter.setNewData(new ArrayList<>(liveChannelGroupList));
+                            }
+                            if (!liveChannelGroupList.isEmpty()) {
+                                selectChannelGroup(0, false, 0);
+                            }
+                            // 再次刷新左侧源列表确保高亮
+                            refreshSourceList();
+                            // 关闭对话框（可选）
+                            dialog.dismiss();
+                        });
+                    }
+                    @Override public void error(String msg) {
+                        runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, "加载失败：" + msg, Toast.LENGTH_SHORT).show());
+                    }
+                    @Override public void notice(String msg) {
+                        runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
+                    }
+                });
+            });
 
             btnCopy.setOnClickListener(v -> {
                 ClipboardManager cm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
@@ -2914,6 +2990,7 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
+    // 保存源列表（只保存 name 和 url）
     private void saveSourceList(List<SourceItem> list) {
         JsonArray array = new JsonArray();
         for (SourceItem item : list) {
