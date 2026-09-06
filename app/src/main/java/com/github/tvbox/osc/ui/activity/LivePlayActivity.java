@@ -2556,7 +2556,6 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
-    // ====== 修改后的 clickSettingItem (case 7) ======
     private void clickSettingItem(int position) {
         int realGroupIndex = liveSettingGroupAdapter != null ? liveSettingGroupAdapter.getSelectedGroupIndex() : -1;
 
@@ -2704,14 +2703,16 @@ public class LivePlayActivity extends BaseActivity {
 
     // ========== 新增源管理对话框 ==========
     private void showSourceManageDialog() {
+        // 构建对话框
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("源管理");
 
+        // 主布局
         LinearLayout mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.VERTICAL);
         mainLayout.setPadding(40, 30, 40, 30);
 
-        // 设备信息
+        // 设备信息（二维码提示）
         TextView deviceInfo = new TextView(this);
         String ip = getDeviceIp();
         String port = "9978";
@@ -2724,12 +2725,13 @@ public class LivePlayActivity extends BaseActivity {
 
         // 源列表
         ListView listView = new ListView(this);
-        listView.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 300));
+        listView.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 300));
         listView.setDividerHeight(2);
         listView.setDivider(new android.graphics.drawable.ColorDrawable(0x44FFFFFF));
         mainLayout.addView(listView);
 
-        // 输入行
+        // 输入行（名称 + 地址 + 确定）
         LinearLayout inputRow = new LinearLayout(this);
         inputRow.setOrientation(LinearLayout.HORIZONTAL);
         inputRow.setPadding(0, 16, 0, 0);
@@ -2763,7 +2765,7 @@ public class LivePlayActivity extends BaseActivity {
         inputRow.addView(btnAdd);
         mainLayout.addView(inputRow);
 
-        // 关闭按钮
+        // 关闭按钮（放在对话框底部）
         Button btnClose = new Button(this);
         btnClose.setText("关闭");
         btnClose.setBackgroundColor(0x66FFFFFF);
@@ -2786,9 +2788,11 @@ public class LivePlayActivity extends BaseActivity {
             dataList.add(new SourceItem(name, url));
         }
 
-        SourceAdapter adapter = new SourceAdapter(dataList, dialog);
+        // 创建适配器，传入 Context (this)
+        SourceAdapter adapter = new SourceAdapter(this, dataList, dialog);
         listView.setAdapter(adapter);
 
+        // 添加按钮
         btnAdd.setOnClickListener(v -> {
             String name = nameInput.getText().toString().trim();
             String url = urlInput.getText().toString().trim();
@@ -2799,6 +2803,7 @@ public class LivePlayActivity extends BaseActivity {
             if (TextUtils.isEmpty(name)) {
                 name = extractNameFromUrl(url);
             }
+            // 检查重复
             for (SourceItem item : dataList) {
                 if (item.url.equals(url)) {
                     Toast.makeText(this, "地址已存在", Toast.LENGTH_SHORT).show();
@@ -2811,30 +2816,38 @@ public class LivePlayActivity extends BaseActivity {
             nameInput.setText("");
             urlInput.setText("");
             Toast.makeText(this, "添加成功", Toast.LENGTH_SHORT).show();
+            // 刷新左侧源列表
             refreshSourceList();
         });
 
+        // 关闭按钮
         btnClose.setOnClickListener(v -> dialog.dismiss());
 
         dialog.show();
     }
 
-    // ========== 辅助类和辅助方法 ==========
+    // 辅助数据类
     class SourceItem {
         String name, url;
         SourceItem(String n, String u) { name = n; url = u; }
     }
 
+    // 修正后的 SourceAdapter
     class SourceAdapter extends BaseAdapter {
+        private Context context;
         private List<SourceItem> data;
         private AlertDialog dialog;
-        public SourceAdapter(List<SourceItem> data, AlertDialog dialog) {
+
+        public SourceAdapter(Context context, List<SourceItem> data, AlertDialog dialog) {
+            this.context = context;
             this.data = data;
             this.dialog = dialog;
         }
+
         @Override public int getCount() { return data.size(); }
         @Override public Object getItem(int position) { return data.get(position); }
         @Override public long getItemId(int position) { return position; }
+
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             LinearLayout itemLayout;
@@ -2856,6 +2869,7 @@ public class LivePlayActivity extends BaseActivity {
                 tvUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
                 itemLayout.addView(tvUrl);
 
+                // 复制
                 TextView btnCopy = new TextView(parent.getContext());
                 btnCopy.setText("复制");
                 btnCopy.setTextColor(0xFFFFFFFF);
@@ -2864,6 +2878,7 @@ public class LivePlayActivity extends BaseActivity {
                 btnCopy.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 itemLayout.addView(btnCopy);
 
+                // 删除
                 TextView btnDelete = new TextView(parent.getContext());
                 btnDelete.setText("删除");
                 btnDelete.setTextColor(0xFFFF0000);
@@ -2887,16 +2902,16 @@ public class LivePlayActivity extends BaseActivity {
             tvUrl.setText(item.url);
 
             btnCopy.setOnClickListener(v -> {
-                ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipboardManager cm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
                 cm.setText(item.url);
-                Toast.makeText(getContext(), "已复制", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show();
             });
 
             btnDelete.setOnClickListener(v -> {
                 data.remove(position);
                 notifyDataSetChanged();
                 saveSourceList(data);
-                Toast.makeText(getContext(), "已删除", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show();
                 refreshSourceList();
             });
 
@@ -2941,7 +2956,7 @@ public class LivePlayActivity extends BaseActivity {
         return "直播";
     }
 
-    // ========== 其余方法保持不变 ==========
+    // ========== 其余方法（保持不变） ==========
     private void performUpdateSubscription() {
         String liveApiUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
         if (liveApiUrl.isEmpty()) {
