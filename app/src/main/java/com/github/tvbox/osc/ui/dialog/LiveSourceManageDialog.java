@@ -57,11 +57,11 @@ public class LiveSourceManageDialog extends Dialog {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // ----- 构建 UI -----
+        // ----- 构建主布局 -----
         LinearLayout root = new LinearLayout(getContext());
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setPadding(24, 24, 24, 24);
-        root.setBackgroundColor(0xCC000000);
+        root.setBackgroundColor(0xDD000000);
         root.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -75,16 +75,16 @@ public class LiveSourceManageDialog extends Dialog {
         leftPanel.setLayoutParams(leftParams);
 
         ivQrCode = new ImageView(getContext());
-        ivQrCode.setLayoutParams(new ViewGroup.LayoutParams(160, 160));
+        ivQrCode.setLayoutParams(new ViewGroup.LayoutParams(180, 180));
         leftPanel.addView(ivQrCode);
 
         tvDeviceInfo = new TextView(getContext());
         tvDeviceInfo.setTextColor(0xFFFFFFFF);
-        tvDeviceInfo.setTextSize(12);
-        tvDeviceInfo.setPadding(0, 8, 0, 0);
+        tvDeviceInfo.setTextSize(13);
+        tvDeviceInfo.setPadding(0, 12, 0, 0);
         leftPanel.addView(tvDeviceInfo);
 
-        // 右侧
+        // 右侧：列表 + 输入
         LinearLayout rightPanel = new LinearLayout(getContext());
         rightPanel.setOrientation(LinearLayout.VERTICAL);
         rightPanel.setPadding(16, 0, 0, 0);
@@ -94,14 +94,13 @@ public class LiveSourceManageDialog extends Dialog {
         TextView title = new TextView(getContext());
         title.setText("源列表");
         title.setTextColor(0xFFFFFFFF);
-        title.setTextSize(16);
+        title.setTextSize(18);
         title.setPadding(0, 0, 0, 12);
         rightPanel.addView(title);
 
         listView = new ListView(getContext());
         listView.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
-        // 修复：使用 ColorDrawable
         listView.setDivider(new ColorDrawable(0x44FFFFFF));
         listView.setDividerHeight(2);
         rightPanel.addView(listView);
@@ -117,8 +116,10 @@ public class LiveSourceManageDialog extends Dialog {
         etName.setHint("名称(选填)");
         etName.setTextColor(0xFFFFFFFF);
         etName.setHintTextColor(0xFF888888);
+        etName.setBackgroundColor(0x33FFFFFF);
+        etName.setPadding(8, 8, 8, 8);
         LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        nameParams.setMargins(0, 0, 6, 0);
+        nameParams.setMargins(0, 0, 8, 0);
         etName.setLayoutParams(nameParams);
         inputRow.addView(etName);
 
@@ -126,19 +127,26 @@ public class LiveSourceManageDialog extends Dialog {
         etUrl.setHint("地址");
         etUrl.setTextColor(0xFFFFFFFF);
         etUrl.setHintTextColor(0xFF888888);
+        etUrl.setBackgroundColor(0x33FFFFFF);
+        etUrl.setPadding(8, 8, 8, 8);
         LinearLayout.LayoutParams urlParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2);
-        urlParams.setMargins(0, 0, 6, 0);
+        urlParams.setMargins(0, 0, 8, 0);
         etUrl.setLayoutParams(urlParams);
         inputRow.addView(etUrl);
 
         Button btnAdd = new Button(getContext());
         btnAdd.setText("确定");
+        btnAdd.setBackgroundColor(0xFF03DAC5);
+        btnAdd.setTextColor(0xFF000000);
         inputRow.addView(btnAdd);
 
         rightPanel.addView(inputRow);
 
+        // 关闭按钮
         Button btnClose = new Button(getContext());
         btnClose.setText("关闭");
+        btnClose.setBackgroundColor(0x66FFFFFF);
+        btnClose.setTextColor(0xFFFFFFFF);
         btnClose.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         btnClose.setPadding(0, 12, 0, 0);
@@ -148,22 +156,24 @@ public class LiveSourceManageDialog extends Dialog {
         root.addView(rightPanel);
         setContentView(root);
 
-        // 设置窗口尺寸（缩小）
+        // 设置窗口尺寸（更小一些）
         Window window = getWindow();
         if (window != null) {
             WindowManager.LayoutParams params = window.getAttributes();
-            params.width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.70);
+            params.width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.80);
             params.height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.60);
             params.gravity = Gravity.CENTER;
             window.setAttributes(params);
+            // 背景变暗
+            window.setDimAmount(0.5f);
         }
 
-        // 二维码
+        // 显示二维码
         String ip = getDeviceIp();
         String port = "9978";
         String content = "http://" + ip + ":" + port + "/";
         tvDeviceInfo.setText(content);
-        Bitmap qr = QRCodeUtil.createQRCode(content, 160);
+        Bitmap qr = QRCodeUtil.createQRCode(content, 200);
         if (qr != null) {
             ivQrCode.setImageBitmap(qr);
         }
@@ -211,6 +221,7 @@ public class LiveSourceManageDialog extends Dialog {
             array.add(obj);
         }
         Hawk.put(HawkConfig.LIVE_SOURCE_LIST, array);
+        // 触发回调
         if (listener != null) {
             listener.onSourceChanged();
         }
@@ -280,70 +291,113 @@ public class LiveSourceManageDialog extends Dialog {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
+            LinearLayout itemLayout;
             if (convertView == null) {
-                LinearLayout itemLayout = new LinearLayout(getContext());
+                itemLayout = new LinearLayout(getContext());
                 itemLayout.setOrientation(LinearLayout.HORIZONTAL);
                 itemLayout.setPadding(12, 12, 12, 12);
-                itemLayout.setBackgroundColor(0x33444444);
-                itemLayout.setLayoutParams(new ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                itemLayout.setBackgroundColor(0x33FFFFFF);
 
+                // 名称
                 TextView tvName = new TextView(getContext());
                 tvName.setId(R.id.tv_name);
                 tvName.setTextColor(0xFFFFFFFF);
-                tvName.setTextSize(14);
-                tvName.setPadding(0, 0, 12, 0);
+                tvName.setTextSize(15);
                 tvName.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
                 itemLayout.addView(tvName);
 
+                // URL
                 TextView tvUrl = new TextView(getContext());
                 tvUrl.setId(R.id.tv_url);
                 tvUrl.setTextColor(0xFFAAAAAA);
-                tvUrl.setTextSize(11);
-                tvUrl.setPadding(0, 0, 12, 0);
+                tvUrl.setTextSize(12);
                 tvUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
                 itemLayout.addView(tvUrl);
+
+                // 四个按钮
+                TextView btnUp = new TextView(getContext());
+                btnUp.setId(R.id.btn_up);
+                btnUp.setText("↑");
+                btnUp.setTextColor(0xFFFFFFFF);
+                btnUp.setBackgroundColor(0x33666666);
+                btnUp.setPadding(8, 4, 8, 4);
+                btnUp.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                itemLayout.addView(btnUp);
+
+                TextView btnDown = new TextView(getContext());
+                btnDown.setId(R.id.btn_down);
+                btnDown.setText("↓");
+                btnDown.setTextColor(0xFFFFFFFF);
+                btnDown.setBackgroundColor(0x33666666);
+                btnDown.setPadding(8, 4, 8, 4);
+                btnDown.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                itemLayout.addView(btnDown);
 
                 TextView btnCopy = new TextView(getContext());
                 btnCopy.setId(R.id.btn_copy);
                 btnCopy.setText("复制");
                 btnCopy.setTextColor(0xFFFFFFFF);
-                btnCopy.setPadding(8, 8, 8, 8);
                 btnCopy.setBackgroundColor(0x33666666);
-                btnCopy.setLayoutParams(new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-                btnCopy.setTag("copy");
+                btnCopy.setPadding(8, 4, 8, 4);
+                btnCopy.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 itemLayout.addView(btnCopy);
 
                 TextView btnDelete = new TextView(getContext());
                 btnDelete.setId(R.id.btn_delete);
                 btnDelete.setText("删除");
                 btnDelete.setTextColor(0xFFFF0000);
-                btnDelete.setPadding(8, 8, 8, 8);
                 btnDelete.setBackgroundColor(0x33666666);
-                btnDelete.setLayoutParams(new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-                btnDelete.setTag("delete");
+                btnDelete.setPadding(8, 4, 8, 4);
+                btnDelete.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 itemLayout.addView(btnDelete);
 
                 convertView = itemLayout;
+            } else {
+                itemLayout = (LinearLayout) convertView;
             }
 
-            TextView tvName = convertView.findViewById(R.id.tv_name);
-            TextView tvUrl = convertView.findViewById(R.id.tv_url);
-            TextView btnCopy = convertView.findViewById(R.id.btn_copy);
-            TextView btnDelete = convertView.findViewById(R.id.btn_delete);
-
             SourceItem item = data.get(position);
+
+            TextView tvName = itemLayout.findViewById(R.id.tv_name);
+            TextView tvUrl = itemLayout.findViewById(R.id.tv_url);
+            TextView btnUp = itemLayout.findViewById(R.id.btn_up);
+            TextView btnDown = itemLayout.findViewById(R.id.btn_down);
+            TextView btnCopy = itemLayout.findViewById(R.id.btn_copy);
+            TextView btnDelete = itemLayout.findViewById(R.id.btn_delete);
+
             tvName.setText(item.name);
             tvUrl.setText(item.url);
 
+            // 上移
+            btnUp.setOnClickListener(v -> {
+                if (position > 0) {
+                    SourceItem prev = data.get(position - 1);
+                    data.set(position - 1, item);
+                    data.set(position, prev);
+                    notifyDataSetChanged();
+                    saveData(data);
+                }
+            });
+
+            // 下移
+            btnDown.setOnClickListener(v -> {
+                if (position < data.size() - 1) {
+                    SourceItem next = data.get(position + 1);
+                    data.set(position + 1, item);
+                    data.set(position, next);
+                    notifyDataSetChanged();
+                    saveData(data);
+                }
+            });
+
+            // 复制
             btnCopy.setOnClickListener(v -> {
                 ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
                 cm.setText(item.url);
                 Toast.makeText(getContext(), "已复制", Toast.LENGTH_SHORT).show();
             });
 
+            // 删除
             btnDelete.setOnClickListener(v -> {
                 data.remove(position);
                 notifyDataSetChanged();
