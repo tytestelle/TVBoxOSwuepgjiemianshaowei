@@ -4,7 +4,7 @@ import android.app.Activity;
 import android.app.Application;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;          // 新增导入，用于输出日志
+import android.util.Log;
 import android.widget.Toast;
 import java.io.File;
 import java.io.FileWriter;
@@ -33,7 +33,6 @@ import com.github.catvod.crawler.JsLoader;
 import me.jessyan.autosize.AutoSizeConfig;
 import me.jessyan.autosize.unit.Subunits;
 
-// EPG 相关导入
 import com.github.tvbox.osc.util.epg.EpgDataLoader;
 import com.github.tvbox.osc.util.epg.EpgManager;
 
@@ -52,6 +51,9 @@ public class App extends MultiDexApplication {
     @Override
     public void onCreate() {
         super.onCreate();
+        // 初始化文件日志（按用户要求添加）
+        FileLogger.init(this);
+
         instance = this;
         EpgUtil.init();
 
