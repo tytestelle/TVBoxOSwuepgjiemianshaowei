@@ -244,6 +244,18 @@
                 android:layout_marginTop="4dp" />
         </LinearLayout>
 
+        <!-- ===== 新增描述文本 ===== -->
+        <TextView
+            android:id="@+id/tv_desc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:maxLines="3"
+            android:ellipsize="end"
+            android:visibility="gone"
+            android:layout_marginTop="4dp" />
+
         <!-- 时间与进度条行 -->
         <LinearLayout
             android:layout_width="match_parent"
