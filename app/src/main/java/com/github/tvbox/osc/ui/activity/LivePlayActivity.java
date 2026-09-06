@@ -10,7 +10,7 @@ import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.SharedPreferences;    // 新增导入
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.CountDownTimer;
@@ -76,7 +76,7 @@ import com.github.tvbox.osc.util.HistoryHelper;
 import com.github.tvbox.osc.util.live.TxtSubscribe;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.JsonParser;            // 新增导入
 import com.lzy.okgo.OkGo;
 import com.lzy.okgo.callback.AbsCallback;
 import com.lzy.okgo.model.Response;
@@ -525,13 +525,16 @@ public class LivePlayActivity extends BaseActivity {
                 sourceNames.add(name);
             }
         }
-        liveSourceAdapter.setNewData(sourceNames);
-        // 默认选中第一个
-        if (sourceNames.size() > 0) {
-            liveSourceAdapter.setSelectedPosition(0);
-        } else {
-            liveSourceAdapter.setSelectedPosition(0);
+        if (liveSourceAdapter != null) {
+            liveSourceAdapter.setNewData(sourceNames);
+            if (sourceNames.size() > 0) {
+                liveSourceAdapter.setSelectedPosition(0);
+            } else {
+                liveSourceAdapter.setSelectedPosition(0);
+            }
         }
+        // 日志打印
+        android.util.Log.i("LivePlay", "源列表数量：" + sourceNames.size());
     }
 
     private void switchToSource(int position) {
@@ -2668,7 +2671,7 @@ public class LivePlayActivity extends BaseActivity {
                     LiveSourceManageDialog dialog = new LiveSourceManageDialog(this, () -> {
                         runOnUiThread(() -> {
                             refreshSourceList();
-                            // 可选：自动切换第一个源
+                            // 自动加载第一个源
                             SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
                             String json = prefs.getString("source_list", "[]");
                             JsonArray list = JsonParser.parseString(json).getAsJsonArray();
@@ -2679,7 +2682,6 @@ public class LivePlayActivity extends BaseActivity {
                                 Hawk.put(HawkConfig.LIVE_API_URL, url);
                                 Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, 0);
                                 updateCurrentSourceName(name);
-                                // 加载直播列表
                                 ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
                                     @Override public void success() {
                                         runOnUiThread(() -> {
