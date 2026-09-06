@@ -7,22 +7,17 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.AsyncTask;
 import android.text.TextUtils;
-import android.util.Log;
 
 import com.github.tvbox.osc.util.LOG;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
 
-import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -65,7 +60,6 @@ public class EpgManager {
         db = helper.getWritableDatabase();
         epgUrl = EpgSettings.getEpgUrl(context);
         if (TextUtils.isEmpty(epgUrl)) {
-            // 从 configuration.json 读取默认 EPG URL
             loadDefaultEpgUrl();
         }
     }
@@ -94,7 +88,6 @@ public class EpgManager {
         }
     }
 
-    // ========== 下载并解析 EPG ==========
     public void refreshEpg(RefreshCallback callback) {
         if (TextUtils.isEmpty(epgUrl)) {
             if (callback != null) callback.onError("EPG URL 未设置");
@@ -128,10 +121,8 @@ public class EpgManager {
     }
 
     private boolean parseAndStore(String xml) {
-        // 清空旧数据
         db.delete(TABLE_PROGRAMS, null, null);
         db.delete(TABLE_CHANNELS, null, null);
-
         try {
             XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
             XmlPullParser parser = factory.newPullParser();
@@ -153,12 +144,8 @@ public class EpgManager {
                     case XmlPullParser.START_TAG:
                         if ("channel".equals(tagName)) {
                             currentChannelId = parser.getAttributeValue(null, "id");
-                            // 读取 display-name
-                            String displayName = null;
-                            // 注意：display-name 是子元素，需要在后续处理，这里先跳过
                         } else if ("display-name".equals(tagName) && currentChannelId != null) {
                             String name = parser.nextText();
-                            // 存储 channel 映射
                             channelValues.clear();
                             channelValues.put("channel_id", currentChannelId);
                             channelValues.put("display_name", name);
@@ -191,7 +178,6 @@ public class EpgManager {
                 }
                 eventType = parser.next();
             }
-            LOG.i("EPG 解析成功，节目数: " + getProgramCount());
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -199,19 +185,9 @@ public class EpgManager {
         }
     }
 
-    private int getProgramCount() {
-        Cursor c = db.query(TABLE_PROGRAMS, new String[]{"COUNT(*)"}, null, null, null, null, null);
-        int count = 0;
-        if (c.moveToFirst()) count = c.getInt(0);
-        c.close();
-        return count;
-    }
-
-    // ========== 查询节目 ==========
     public List<EpgProgram> getProgramsForChannel(String channelName) {
         String epgId = EpgDataLoader.getEpgId(channelName);
         if (epgId == null) return new ArrayList<>();
-        // 查询 channel_id
         String channelId = null;
         Cursor c = db.query(TABLE_CHANNELS, new String[]{"channel_id"}, "display_name=?", new String[]{epgId}, null, null, null);
         if (c.moveToFirst()) channelId = c.getString(0);
@@ -258,7 +234,6 @@ public class EpgManager {
                 int hour = Integer.parseInt(time.substring(8, 10));
                 int minute = Integer.parseInt(time.substring(10, 12));
                 int second = Integer.parseInt(time.substring(12, 14));
-                // 假设时间字符串为UTC，转换为本地时间（北京时间+8）
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
                 sdf.setTimeZone(TimeZone.getTimeZone("GMT+8"));
                 return sdf.parse(year + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second);
@@ -272,34 +247,24 @@ public class EpgManager {
         void onError(String msg);
     }
 
-    // ---------- 数据库辅助 ----------
-    private static class DBHelper extends SQLiteOpenHelper {
-        public DBHelper(Context context) {
-            super(context, DB_NAME, null, DB_VERSION);
-        }
-        @Override
-        public void onCreate(SQLiteDatabase db) {
-            String createChannels = "CREATE TABLE channels (channel_id TEXT PRIMARY KEY, display_name TEXT)";
-            String createPrograms = "CREATE TABLE programs (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "channel_id TEXT, " +
-                    "start_time TEXT, " +
-                    "stop_time TEXT, " +
-                    "title TEXT, " +
-                    "desc TEXT)";
-            db.execSQL(createChannels);
-            db.execSQL(createPrograms);
-        }
-        @Override
-        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
-    }
-
-    // ---------- 简单数据类 ----------
     public static class EpgProgram {
         public String title, description;
         public Date start, stop;
         public EpgProgram(String title, String description, Date start, Date stop) {
             this.title = title; this.description = description; this.start = start; this.stop = stop;
         }
+    }
+
+    private static class DBHelper extends SQLiteOpenHelper {
+        public DBHelper(Context context) {
+            super(context, DB_NAME, null, DB_VERSION);
+        }
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            db.execSQL("CREATE TABLE channels (channel_id TEXT PRIMARY KEY, display_name TEXT)");
+            db.execSQL("CREATE TABLE programs (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id TEXT, start_time TEXT, stop_time TEXT, title TEXT, desc TEXT)");
+        }
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
     }
 }
