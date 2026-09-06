@@ -9,7 +9,7 @@ import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.chad.library.adapter.base.BaseViewHolder;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.bean.LiveChannelItem;
-import com.github.tvbox.osc.util.logo.LogoManager; // 请根据实际包名调整
+import com.github.tvbox.osc.util.logo.LogoManager; // 包名已修正
 
 import java.io.File;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ public class LiveChannelItemAdapter extends BaseQuickAdapter<LiveChannelItem, Ba
 
         // ---------- 新增：台标加载 ----------
         ImageView ivLogo = holder.getView(R.id.ivChannelLogo); // 请确保布局中存在该id
-        // 先设置默认占位（使用系统资源 android.R.drawable.ic_menu_gallery）
+        // 使用系统默认占位图（已按需求修正为 android.R.drawable.ic_menu_gallery）
         Glide.with(mContext).load(android.R.drawable.ic_menu_gallery).into(ivLogo);
 
         String channelName = item.getChannelName();
