@@ -3,6 +3,7 @@ package com.github.tvbox.osc.ui.dialog;
 import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -25,11 +26,10 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 
 import com.github.tvbox.osc.R;
-import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.QRCodeUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.orhanobut.hawk.Hawk;
+import com.google.gson.JsonParser;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +42,9 @@ public class LiveSourceManageDialog extends Dialog {
     private ImageView ivQrCode;
     private TextView tvDeviceInfo;
     private OnSourceChangeListener listener;
+
+    private static final String PREF_NAME = "live_source_pref";
+    private static final String KEY_SOURCE_LIST = "source_list";
 
     public interface OnSourceChangeListener {
         void onSourceChanged();
@@ -164,7 +167,6 @@ public class LiveSourceManageDialog extends Dialog {
             params.height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.60);
             params.gravity = Gravity.CENTER;
             window.setAttributes(params);
-            // 背景变暗
             window.setDimAmount(0.5f);
         }
 
@@ -200,8 +202,11 @@ public class LiveSourceManageDialog extends Dialog {
         return "127.0.0.1";
     }
 
+    // 从 SharedPreferences 加载数据
     private void loadData() {
-        JsonArray array = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
+        SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        String json = prefs.getString(KEY_SOURCE_LIST, "[]");
+        JsonArray array = JsonParser.parseString(json).getAsJsonArray();
         List<SourceItem> list = new ArrayList<>();
         for (int i = 0; i < array.size(); i++) {
             JsonObject obj = array.get(i).getAsJsonObject();
@@ -212,6 +217,7 @@ public class LiveSourceManageDialog extends Dialog {
         adapter.setData(list);
     }
 
+    // 保存到 SharedPreferences
     private void saveData(List<SourceItem> list) {
         JsonArray array = new JsonArray();
         for (SourceItem item : list) {
@@ -220,7 +226,8 @@ public class LiveSourceManageDialog extends Dialog {
             obj.addProperty("url", item.url);
             array.add(obj);
         }
-        Hawk.put(HawkConfig.LIVE_SOURCE_LIST, array);
+        SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(KEY_SOURCE_LIST, array.toString()).apply();
         // 触发回调
         if (listener != null) {
             listener.onSourceChanged();
@@ -314,25 +321,7 @@ public class LiveSourceManageDialog extends Dialog {
                 tvUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
                 itemLayout.addView(tvUrl);
 
-                // 四个按钮
-                TextView btnUp = new TextView(getContext());
-                btnUp.setId(R.id.btn_up);
-                btnUp.setText("↑");
-                btnUp.setTextColor(0xFFFFFFFF);
-                btnUp.setBackgroundColor(0x33666666);
-                btnUp.setPadding(8, 4, 8, 4);
-                btnUp.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-                itemLayout.addView(btnUp);
-
-                TextView btnDown = new TextView(getContext());
-                btnDown.setId(R.id.btn_down);
-                btnDown.setText("↓");
-                btnDown.setTextColor(0xFFFFFFFF);
-                btnDown.setBackgroundColor(0x33666666);
-                btnDown.setPadding(8, 4, 8, 4);
-                btnDown.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-                itemLayout.addView(btnDown);
-
+                // 复制按钮
                 TextView btnCopy = new TextView(getContext());
                 btnCopy.setId(R.id.btn_copy);
                 btnCopy.setText("复制");
@@ -342,6 +331,7 @@ public class LiveSourceManageDialog extends Dialog {
                 btnCopy.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 itemLayout.addView(btnCopy);
 
+                // 删除按钮
                 TextView btnDelete = new TextView(getContext());
                 btnDelete.setId(R.id.btn_delete);
                 btnDelete.setText("删除");
@@ -360,35 +350,11 @@ public class LiveSourceManageDialog extends Dialog {
 
             TextView tvName = itemLayout.findViewById(R.id.tv_name);
             TextView tvUrl = itemLayout.findViewById(R.id.tv_url);
-            TextView btnUp = itemLayout.findViewById(R.id.btn_up);
-            TextView btnDown = itemLayout.findViewById(R.id.btn_down);
             TextView btnCopy = itemLayout.findViewById(R.id.btn_copy);
             TextView btnDelete = itemLayout.findViewById(R.id.btn_delete);
 
             tvName.setText(item.name);
             tvUrl.setText(item.url);
-
-            // 上移
-            btnUp.setOnClickListener(v -> {
-                if (position > 0) {
-                    SourceItem prev = data.get(position - 1);
-                    data.set(position - 1, item);
-                    data.set(position, prev);
-                    notifyDataSetChanged();
-                    saveData(data);
-                }
-            });
-
-            // 下移
-            btnDown.setOnClickListener(v -> {
-                if (position < data.size() - 1) {
-                    SourceItem next = data.get(position + 1);
-                    data.set(position + 1, item);
-                    data.set(position, next);
-                    notifyDataSetChanged();
-                    saveData(data);
-                }
-            });
 
             // 复制
             btnCopy.setOnClickListener(v -> {
