@@ -5,18 +5,14 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.util.Log;
 
 import com.github.tvbox.osc.util.epg.EpgDataLoader;
 import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,12 +30,10 @@ public class LogoManager {
     private File logoDir;
     private OkHttpClient httpClient;
     private ExecutorService executor = Executors.newFixedThreadPool(3);
-    private Map<String, String> m3uLogos = new HashMap<>(); // 从M3U中提取的logo
+    private Map<String, String> m3uLogos = new HashMap<>();
     private List<LogoSource> enabledSources = new ArrayList<>();
 
-    public enum LogoSource {
-        M3U, GITHUB, EPG
-    }
+    public enum LogoSource { M3U, GITHUB, EPG }
 
     public static synchronized LogoManager getInstance(Context context) {
         if (instance == null) {
@@ -50,15 +44,12 @@ public class LogoManager {
 
     private LogoManager(Context context) {
         this.context = context;
-        this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                .build();
+        this.httpClient = new OkHttpClient.Builder().connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS).build();
         logoDir = new File(context.getFilesDir(), "logos");
         if (!logoDir.exists()) logoDir.mkdirs();
         loadEnabledSources();
     }
 
-    // 加载启用的台标来源（从SharedPreferences）
     private void loadEnabledSources() {
         SharedPreferences prefs = context.getSharedPreferences("logo_settings", Context.MODE_PRIVATE);
         String json = prefs.getString("enabled_sources", "[\"M3U\",\"GITHUB\",\"EPG\"]");
@@ -67,12 +58,9 @@ public class LogoManager {
             enabledSources.clear();
             for (int i = 0; i < arr.size(); i++) {
                 String name = arr.get(i).getAsString();
-                try {
-                    enabledSources.add(LogoSource.valueOf(name));
-                } catch (Exception e) {}
+                try { enabledSources.add(LogoSource.valueOf(name)); } catch (Exception e) {}
             }
         } catch (Exception e) {
-            // 默认全部启用
             enabledSources.clear();
             enabledSources.add(LogoSource.M3U);
             enabledSources.add(LogoSource.GITHUB);
@@ -89,13 +77,11 @@ public class LogoManager {
                 .edit().putString("enabled_sources", arr.toString()).apply();
     }
 
-    // 更新M3U台标映射
     public void updateM3uLogos(Map<String, String> logos) {
         m3uLogos.clear();
         m3uLogos.putAll(logos);
     }
 
-    // 下载单个台标（异步）
     public void downloadLogo(String channelName, String fallbackUrl, LogoCallback callback) {
         executor.execute(() -> {
             File cacheFile = getCacheFile(channelName);
@@ -113,7 +99,6 @@ public class LogoManager {
         });
     }
 
-    // 同步获取（若本地存在则返回，否则返回null）
     public File getLocalLogo(String channelName) {
         File f = getCacheFile(channelName);
         return f.exists() ? f : null;
@@ -140,7 +125,7 @@ public class LogoManager {
                     result = fetchBitmap(githubUrl);
                     break;
                 case EPG:
-                    // 从EPG XML中获取图标（需要EpgManager支持，简化处理略）
+                    // 暂未实现从EPG XML获取图标，可扩展
                     break;
             }
             if (result != null) break;
@@ -158,34 +143,25 @@ public class LogoManager {
             if (response.isSuccessful() && response.body() != null) {
                 InputStream is = response.body().byteStream();
                 Bitmap bitmap = BitmapFactory.decodeStream(is);
-                if (bitmap != null) {
-                    // 透明背景处理
-                    bitmap = removeBackground(bitmap);
-                }
+                if (bitmap != null) bitmap = removeBackground(bitmap);
                 return bitmap;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
         return null;
     }
 
-    // 透明背景处理：将边缘颜色相近的像素变为透明
     private Bitmap removeBackground(Bitmap src) {
         int w = src.getWidth(), h = src.getHeight();
         Bitmap result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         int[] pixels = new int[w * h];
         src.getPixels(pixels, 0, w, 0, 0, w, h);
-
-        // 获取四个角颜色作为背景色候选
-        int bg = pixels[0]; // 左上角
+        int bg = pixels[0];
         int tolerance = 30;
-
         for (int i = 0; i < pixels.length; i++) {
-            int pixel = pixels[i];
-            if (Math.abs(Color.red(pixel) - Color.red(bg)) < tolerance &&
-                Math.abs(Color.green(pixel) - Color.green(bg)) < tolerance &&
-                Math.abs(Color.blue(pixel) - Color.blue(bg)) < tolerance) {
+            int p = pixels[i];
+            if (Math.abs(Color.red(p) - Color.red(bg)) < tolerance &&
+                Math.abs(Color.green(p) - Color.green(bg)) < tolerance &&
+                Math.abs(Color.blue(p) - Color.blue(bg)) < tolerance) {
                 pixels[i] = Color.TRANSPARENT;
             }
         }
@@ -198,9 +174,7 @@ public class LogoManager {
             FileOutputStream fos = new FileOutputStream(file);
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
             fos.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     public interface LogoCallback {
