@@ -5,9 +5,13 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.os.Handler;
+import android.os.Looper;
+
 import com.github.tvbox.osc.util.epg.EpgDataLoader;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -17,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -29,6 +34,7 @@ public class LogoManager {
     private ExecutorService executor = Executors.newFixedThreadPool(3);
     private Map<String, String> m3uLogos = new HashMap<>();
     private List<LogoSource> enabledSources = new ArrayList<>();
+    private Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public enum LogoSource { M3U, GITHUB, EPG }
 
@@ -71,10 +77,23 @@ public class LogoManager {
     public void downloadLogo(String channelName, String fallbackUrl, LogoCallback callback) {
         executor.execute(() -> {
             File cacheFile = getCacheFile(channelName);
-            if (cacheFile.exists()) { if (callback != null) callback.onSuccess(cacheFile); return; }
+            if (cacheFile.exists()) {
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onSuccess(cacheFile));
+                }
+                return;
+            }
             Bitmap bitmap = downloadFromSources(channelName, fallbackUrl);
-            if (bitmap != null) { saveBitmap(bitmap, cacheFile); if (callback != null) callback.onSuccess(cacheFile); }
-            else if (callback != null) callback.onError("下载失败");
+            if (bitmap != null) {
+                saveBitmap(bitmap, cacheFile);
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onSuccess(cacheFile));
+                }
+            } else {
+                if (callback != null) {
+                    mainHandler.post(() -> callback.onError("下载失败"));
+                }
+            }
         });
     }
 
