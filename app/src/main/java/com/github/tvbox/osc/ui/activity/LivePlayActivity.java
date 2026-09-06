@@ -10,7 +10,7 @@ import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;    // 新增导入
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.CountDownTimer;
@@ -63,7 +63,6 @@ import com.github.tvbox.osc.ui.adapter.LiveSettingItemAdapter;
 import com.github.tvbox.osc.ui.adapter.LiveSourceAdapter;
 import com.github.tvbox.osc.ui.adapter.MyEpgAdapter;
 import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
-import com.github.tvbox.osc.ui.dialog.LiveSourceManageDialog;
 import com.github.tvbox.osc.ui.tv.widget.ViewObj;
 import com.github.tvbox.osc.util.DefaultConfig;
 import com.github.tvbox.osc.util.EpgUtil;
@@ -76,7 +75,7 @@ import com.github.tvbox.osc.util.HistoryHelper;
 import com.github.tvbox.osc.util.live.TxtSubscribe;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;            // 新增导入
+import com.google.gson.JsonParser;
 import com.lzy.okgo.OkGo;
 import com.lzy.okgo.callback.AbsCallback;
 import com.lzy.okgo.model.Response;
@@ -511,7 +510,6 @@ public class LivePlayActivity extends BaseActivity {
 
     // ====== 修改后的 refreshSourceList() ======
     private void refreshSourceList() {
-        // 从 SharedPreferences 读取数据
         SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
         String json = prefs.getString("source_list", "[]");
         JsonArray sourceArray = JsonParser.parseString(json).getAsJsonArray();
@@ -533,7 +531,6 @@ public class LivePlayActivity extends BaseActivity {
                 liveSourceAdapter.setSelectedPosition(0);
             }
         }
-        // 日志打印
         android.util.Log.i("LivePlay", "源列表数量：" + sourceNames.size());
     }
 
@@ -2668,46 +2665,107 @@ public class LivePlayActivity extends BaseActivity {
             }
             case 7:
                 if (position == 0) {
-                    LiveSourceManageDialog dialog = new LiveSourceManageDialog(this, () -> {
-                        runOnUiThread(() -> {
-                            refreshSourceList();
-                            // 自动加载第一个源
-                            SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
-                            String json = prefs.getString("source_list", "[]");
-                            JsonArray list = JsonParser.parseString(json).getAsJsonArray();
-                            if (list.size() > 0) {
-                                JsonObject obj = list.get(0).getAsJsonObject();
-                                String url = obj.get("url").getAsString();
-                                String name = obj.get("name").getAsString();
-                                Hawk.put(HawkConfig.LIVE_API_URL, url);
-                                Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, 0);
-                                updateCurrentSourceName(name);
-                                ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
-                                    @Override public void success() {
-                                        runOnUiThread(() -> {
-                                            initLiveChannelList();
-                                            if (liveChannelGroupAdapter != null) {
-                                                liveChannelGroupAdapter.setNewData(new ArrayList<>(liveChannelGroupList));
-                                            }
-                                            if (!liveChannelGroupList.isEmpty()) {
-                                                selectChannelGroup(0, false, 0);
-                                            }
-                                            refreshSourceList();
-                                        });
-                                    }
-                                    @Override public void error(String msg) {
-                                        runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
-                                    }
-                                    @Override public void notice(String msg) {
-                                        runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
-                                    }
-                                });
-                            } else {
-                                setEmptyLiveChannelList();
+                    // 使用 AlertDialog 直接添加源
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle("添加直播源");
+
+                    // 自定义布局
+                    LinearLayout layout = new LinearLayout(this);
+                    layout.setOrientation(LinearLayout.VERTICAL);
+                    layout.setPadding(50, 30, 50, 30);
+
+                    final EditText nameInput = new EditText(this);
+                    nameInput.setHint("名称(选填)");
+                    layout.addView(nameInput);
+
+                    final EditText urlInput = new EditText(this);
+                    urlInput.setHint("地址");
+                    layout.addView(urlInput);
+
+                    builder.setView(layout);
+
+                    builder.setPositiveButton("确定", (dialog, which) -> {
+                        String name = nameInput.getText().toString().trim();
+                        String url = urlInput.getText().toString().trim();
+                        if (TextUtils.isEmpty(url)) {
+                            Toast.makeText(this, "地址不能为空", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        if (TextUtils.isEmpty(name)) {
+                            // 从 URL 提取名称
+                            try {
+                                android.net.Uri uri = android.net.Uri.parse(url);
+                                String host = uri.getHost();
+                                if (host != null) {
+                                    String[] parts = host.split("\\.");
+                                    name = parts.length > 0 ? parts[0] : "直播";
+                                } else {
+                                    name = "直播";
+                                }
+                            } catch (Exception e) {
+                                name = "直播";
                             }
-                        });
+                        }
+
+                        // 保存到 SharedPreferences
+                        SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
+                        String json = prefs.getString("source_list", "[]");
+                        JsonArray array = JsonParser.parseString(json).getAsJsonArray();
+
+                        // 检查是否已存在
+                        for (int i = 0; i < array.size(); i++) {
+                            JsonObject obj = array.get(i).getAsJsonObject();
+                            if (obj.get("url").getAsString().equals(url)) {
+                                Toast.makeText(this, "地址已存在", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                        }
+
+                        // 添加新源
+                        JsonObject newObj = new JsonObject();
+                        newObj.addProperty("name", name);
+                        newObj.addProperty("url", url);
+                        array.add(newObj);
+                        prefs.edit().putString("source_list", array.toString()).apply();
+
+                        Toast.makeText(this, "添加成功", Toast.LENGTH_SHORT).show();
+
+                        // 刷新源列表
+                        refreshSourceList();
+                        // 自动切换到第一个源
+                        JsonArray list = JsonParser.parseString(prefs.getString("source_list", "[]")).getAsJsonArray();
+                        if (list.size() > 0) {
+                            JsonObject obj = list.get(0).getAsJsonObject();
+                            String firstUrl = obj.get("url").getAsString();
+                            String firstName = obj.get("name").getAsString();
+                            Hawk.put(HawkConfig.LIVE_API_URL, firstUrl);
+                            Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+                            updateCurrentSourceName(firstName);
+                            ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
+                                @Override public void success() {
+                                    runOnUiThread(() -> {
+                                        initLiveChannelList();
+                                        if (liveChannelGroupAdapter != null) {
+                                            liveChannelGroupAdapter.setNewData(new ArrayList<>(liveChannelGroupList));
+                                        }
+                                        if (!liveChannelGroupList.isEmpty()) {
+                                            selectChannelGroup(0, false, 0);
+                                        }
+                                        refreshSourceList();
+                                    });
+                                }
+                                @Override public void error(String msg) {
+                                    runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
+                                }
+                                @Override public void notice(String msg) {
+                                    runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
+                                }
+                            });
+                        }
                     });
-                    dialog.show();
+
+                    builder.setNegativeButton("取消", null);
+                    builder.show();
                 } else if (position == 1) {
                     performUpdateSubscription();
                 }
