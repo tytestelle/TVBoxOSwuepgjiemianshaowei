@@ -39,8 +39,8 @@ public class LiveChannelItemAdapter extends BaseQuickAdapter<LiveChannelItem, Ba
 
         // ---------- 新增：台标加载 ----------
         ImageView ivLogo = holder.getView(R.id.ivChannelLogo); // 请确保布局中存在该id
-        // 先设置默认占位（使用 ic_launcher 替代 default_channel_logo）
-        Glide.with(mContext).load(R.drawable.ic_launcher).into(ivLogo);
+        // 先设置默认占位（使用系统资源 android.R.drawable.ic_menu_gallery）
+        Glide.with(mContext).load(android.R.drawable.ic_menu_gallery).into(ivLogo);
 
         String channelName = item.getChannelName();
         String channelLogoUrl = item.getChannelLogo(); // 假设LiveChannelItem有getChannelLogo()方法
