@@ -32,9 +32,9 @@ import com.github.catvod.crawler.JsLoader;
 import me.jessyan.autosize.AutoSizeConfig;
 import me.jessyan.autosize.unit.Subunits;
 
-// 添加 EPG 相关导入（取消注释并修正包名）
-import com.github.tvbox.osc.epg.EpgDataLoader;
-import com.github.tvbox.osc.epg.EpgManager;
+// 修正 EPG 相关导入，使用正确的包名
+import com.github.tvbox.osc.util.epg.EpgDataLoader;
+import com.github.tvbox.osc.util.epg.EpgManager;
 
 /**
  * @author pj567
