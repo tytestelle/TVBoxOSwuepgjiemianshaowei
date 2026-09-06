@@ -2701,50 +2701,48 @@ public class LivePlayActivity extends BaseActivity {
         mHandler.postDelayed(mHideSettingLayoutRun, postTimeout);
     }
 
-    // ========== 新增源管理对话框 ==========
+    // ========== 新增源管理对话框（完全重写） ==========
     private void showSourceManageDialog() {
-        // 构建对话框
+        // 使用 AlertDialog 构建，但内容用 ScrollView 包裹以防屏幕小
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("源管理");
 
-        // 主布局
         LinearLayout mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.VERTICAL);
-        mainLayout.setPadding(40, 30, 40, 30);
+        mainLayout.setPadding(30, 20, 30, 20);
 
-        // 设备信息（二维码提示）
+        // 设备信息
         TextView deviceInfo = new TextView(this);
         String ip = getDeviceIp();
         String port = "9978";
-        String content = "http://" + ip + ":" + port + "/";
-        deviceInfo.setText("设备地址：" + content);
+        deviceInfo.setText("设备地址：http://" + ip + ":" + port + "/");
         deviceInfo.setTextColor(0xFFFFFFFF);
-        deviceInfo.setTextSize(14);
-        deviceInfo.setPadding(0, 0, 0, 20);
+        deviceInfo.setTextSize(13);
+        deviceInfo.setPadding(0, 0, 0, 15);
         mainLayout.addView(deviceInfo);
 
-        // 源列表
+        // 源列表（固定高度 200dp）
         ListView listView = new ListView(this);
         listView.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 300));
+                ViewGroup.LayoutParams.MATCH_PARENT, 200));
         listView.setDividerHeight(2);
         listView.setDivider(new android.graphics.drawable.ColorDrawable(0x44FFFFFF));
         mainLayout.addView(listView);
 
-        // 输入行（名称 + 地址 + 确定）
+        // 输入行：名称 + 地址（水平）
         LinearLayout inputRow = new LinearLayout(this);
         inputRow.setOrientation(LinearLayout.HORIZONTAL);
+        inputRow.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         inputRow.setPadding(0, 16, 0, 0);
 
         EditText nameInput = new EditText(this);
-        nameInput.setHint("名称(选填)");
+        nameInput.setHint("名称");
         nameInput.setTextColor(0xFFFFFFFF);
         nameInput.setHintTextColor(0xFF888888);
         nameInput.setBackgroundColor(0x33FFFFFF);
-        nameInput.setPadding(8, 8, 8, 8);
-        LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        nameLp.setMargins(0, 0, 8, 0);
-        nameInput.setLayoutParams(nameLp);
+        nameInput.setPadding(10, 10, 10, 10);
+        nameInput.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         inputRow.addView(nameInput);
 
         EditText urlInput = new EditText(this);
@@ -2752,10 +2750,8 @@ public class LivePlayActivity extends BaseActivity {
         urlInput.setTextColor(0xFFFFFFFF);
         urlInput.setHintTextColor(0xFF888888);
         urlInput.setBackgroundColor(0x33FFFFFF);
-        urlInput.setPadding(8, 8, 8, 8);
-        LinearLayout.LayoutParams urlLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2);
-        urlLp.setMargins(0, 0, 8, 0);
-        urlInput.setLayoutParams(urlLp);
+        urlInput.setPadding(10, 10, 10, 10);
+        urlInput.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
         inputRow.addView(urlInput);
 
         Button btnAdd = new Button(this);
@@ -2763,41 +2759,43 @@ public class LivePlayActivity extends BaseActivity {
         btnAdd.setBackgroundColor(0xFF03DAC5);
         btnAdd.setTextColor(0xFF000000);
         inputRow.addView(btnAdd);
+
         mainLayout.addView(inputRow);
 
-        // 关闭按钮（放在对话框底部）
+        // 关闭按钮
         Button btnClose = new Button(this);
         btnClose.setText("关闭");
         btnClose.setBackgroundColor(0x66FFFFFF);
         btnClose.setTextColor(0xFFFFFFFF);
+        btnClose.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         btnClose.setPadding(0, 16, 0, 0);
         mainLayout.addView(btnClose);
 
         builder.setView(mainLayout);
         AlertDialog dialog = builder.create();
 
-        // 适配器数据
+        // 加载数据
         SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
         String json = prefs.getString("source_list", "[]");
         JsonArray sourceArray = JsonParser.parseString(json).getAsJsonArray();
         List<SourceItem> dataList = new ArrayList<>();
         for (int i = 0; i < sourceArray.size(); i++) {
             JsonObject obj = sourceArray.get(i).getAsJsonObject();
-            String name = obj.has("name") ? obj.get("name").getAsString() : "";
-            String url = obj.has("url") ? obj.get("url").getAsString() : "";
-            dataList.add(new SourceItem(name, url));
+            dataList.add(new SourceItem(
+                    obj.has("name") ? obj.get("name").getAsString() : "",
+                    obj.has("url") ? obj.get("url").getAsString() : ""
+            ));
         }
 
-        // 创建适配器，传入 Context (this)
         SourceAdapter adapter = new SourceAdapter(this, dataList, dialog);
         listView.setAdapter(adapter);
 
-        // 添加按钮
         btnAdd.setOnClickListener(v -> {
             String name = nameInput.getText().toString().trim();
             String url = urlInput.getText().toString().trim();
             if (TextUtils.isEmpty(url)) {
-                Toast.makeText(this, "地址不能为空", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "请输入地址", Toast.LENGTH_SHORT).show();
                 return;
             }
             if (TextUtils.isEmpty(name)) {
@@ -2816,13 +2814,10 @@ public class LivePlayActivity extends BaseActivity {
             nameInput.setText("");
             urlInput.setText("");
             Toast.makeText(this, "添加成功", Toast.LENGTH_SHORT).show();
-            // 刷新左侧源列表
             refreshSourceList();
         });
 
-        // 关闭按钮
         btnClose.setOnClickListener(v -> dialog.dismiss());
-
         dialog.show();
     }
 
