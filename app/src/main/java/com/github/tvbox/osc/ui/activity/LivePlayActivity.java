@@ -517,35 +517,38 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
-    // 修改后的 refreshSourceList：支持高亮选中
+    // ===== 修改1：从 SharedPreferences 读取源列表并高亮 =====
     private void refreshSourceList() {
         SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
         String json = prefs.getString("source_list", "[]");
         JsonArray sourceArray = JsonParser.parseString(json).getAsJsonArray();
         List<String> sourceNames = new ArrayList<>();
-        for (int i = 0; i < sourceArray.size(); i++) {
-            JsonObject obj = sourceArray.get(i).getAsJsonObject();
-            String name = obj.has("name") ? obj.get("name").getAsString() : "未命名";
-            sourceNames.add(name);
-        }
-        if (sourceNames.isEmpty()) {
+        if (sourceArray == null || sourceArray.size() == 0) {
             sourceNames.add("无源");
+        } else {
+            for (int i = 0; i < sourceArray.size(); i++) {
+                JsonObject obj = sourceArray.get(i).getAsJsonObject();
+                String name = obj.has("name") ? obj.get("name").getAsString() : "未命名";
+                sourceNames.add(name);
+            }
         }
         if (liveSourceAdapter != null) {
             liveSourceAdapter.setNewData(sourceNames);
-            // 高亮当前选中的源
+            // 恢复选中位置
             int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
-            if (selected < sourceNames.size()) {
+            if (selected >= 0 && selected < sourceNames.size()) {
                 liveSourceAdapter.setSelectedPosition(selected);
             } else {
                 liveSourceAdapter.setSelectedPosition(0);
             }
         }
-        android.util.Log.i("LivePlay", "源列表数量：" + sourceNames.size());
     }
 
+    // ===== 修改2：从 SharedPreferences 读取源列表进行切换 =====
     private void switchToSource(int position) {
-        JsonArray sourceArray = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
+        SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
+        String json = prefs.getString("source_list", "[]");
+        JsonArray sourceArray = JsonParser.parseString(json).getAsJsonArray();
         if (sourceArray == null || position >= sourceArray.size()) {
             Toast.makeText(this, "无效源", Toast.LENGTH_SHORT).show();
             return;
@@ -553,9 +556,12 @@ public class LivePlayActivity extends BaseActivity {
         JsonObject obj = sourceArray.get(position).getAsJsonObject();
         String url = obj.get("url").getAsString();
         String name = obj.get("name").getAsString();
+
         Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, position);
         Hawk.put(HawkConfig.LIVE_API_URL, url);
         updateCurrentSourceName(name);
+
+        Toast.makeText(this, "加载源: " + name, Toast.LENGTH_SHORT).show();
 
         ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
             @Override public void success() {
@@ -567,17 +573,15 @@ public class LivePlayActivity extends BaseActivity {
                     if (!liveChannelGroupList.isEmpty()) {
                         selectChannelGroup(0, false, 0);
                     }
+                    refreshSourceList(); // 刷新左侧列表并高亮
                     mHandler.removeCallbacks(mHideChannelListRun);
-                    mHandler.postDelayed(mHideChannelListRun, postTimeout);
-                    refreshSourceList();
+                    mHandler.postDelayed(mHideChannelListRun, 500);
                 });
             }
             @Override public void error(String msg) {
-                runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, "加载失败: " + msg, Toast.LENGTH_SHORT).show());
             }
-            @Override public void notice(String msg) {
-                runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
-            }
+            @Override public void notice(String msg) {}
         });
     }
 
@@ -2706,94 +2710,81 @@ public class LivePlayActivity extends BaseActivity {
         mHandler.postDelayed(mHideSettingLayoutRun, postTimeout);
     }
 
-    // ========== 新增源管理对话框（水平布局，带二维码） ==========
+    // ========== 新增源管理对话框（美化的左右两栏布局） ==========
     private void showSourceManageDialog() {
-        // 构建对话框（无标题，自定义布局）
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(null);
+        builder.setTitle("列表订阅");
+        builder.setCancelable(true);
 
-        // 主容器：水平布局（左二维码 + 右列表）
         LinearLayout mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.HORIZONTAL);
-        mainLayout.setBackgroundColor(0xDD222222);
-        mainLayout.setPadding(24, 24, 24, 24);
-        mainLayout.setLayoutParams(new LinearLayout.LayoutParams(
+        mainLayout.setPadding(40, 30, 40, 30);
+        mainLayout.setBackgroundColor(0xDD000000);
+        mainLayout.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        // === 左侧：二维码和IP信息 ===
+        // 左侧：二维码 + 说明
         LinearLayout leftPanel = new LinearLayout(this);
         leftPanel.setOrientation(LinearLayout.VERTICAL);
         leftPanel.setGravity(Gravity.CENTER);
-        leftPanel.setPadding(8, 8, 8, 8);
-        LinearLayout.LayoutParams leftParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1);
+        leftPanel.setPadding(20, 20, 20, 20);
+        LinearLayout.LayoutParams leftParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
         leftPanel.setLayoutParams(leftParams);
 
         ImageView qrImage = new ImageView(this);
-        qrImage.setLayoutParams(new LinearLayout.LayoutParams(180, 180));
-        // 生成二维码
-        String ip = getDeviceIp();
-        String port = "9978";
-        String qrContent = "http://" + ip + ":" + port + "/";
-        Bitmap qrBitmap = QRCodeUtil.createQRCode(qrContent, 200);
-        if (qrBitmap != null) {
-            qrImage.setImageBitmap(qrBitmap);
-        } else {
-            qrImage.setImageDrawable(null);
-        }
+        qrImage.setLayoutParams(new ViewGroup.LayoutParams(180, 180));
         leftPanel.addView(qrImage);
 
-        TextView ipInfo = new TextView(this);
-        ipInfo.setText("设备地址：" + qrContent);
-        ipInfo.setTextColor(0xFFFFFFFF);
-        ipInfo.setTextSize(13);
-        ipInfo.setPadding(0, 12, 0, 0);
-        leftPanel.addView(ipInfo);
+        TextView deviceInfo = new TextView(this);
+        String ip = getDeviceIp();
+        String port = "9978";
+        String content = "http://" + ip + ":" + port + "/";
+        deviceInfo.setText("扫码输入（点击二维码查看说明）\n" + content);
+        deviceInfo.setTextColor(0xFFFFFFFF);
+        deviceInfo.setTextSize(14);
+        deviceInfo.setGravity(Gravity.CENTER);
+        deviceInfo.setPadding(0, 16, 0, 0);
+        leftPanel.addView(deviceInfo);
 
-        // === 右侧：源列表 + 输入 ===
+        Bitmap qrBitmap = QRCodeUtil.createQRCode(content, 180);
+        if (qrBitmap != null) qrImage.setImageBitmap(qrBitmap);
+
+        // 右侧：列表 + 输入
         LinearLayout rightPanel = new LinearLayout(this);
         rightPanel.setOrientation(LinearLayout.VERTICAL);
-        rightPanel.setPadding(16, 0, 0, 0);
-        LinearLayout.LayoutParams rightParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 2);
+        rightPanel.setPadding(20, 0, 0, 0);
+        LinearLayout.LayoutParams rightParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2);
         rightPanel.setLayoutParams(rightParams);
 
-        TextView title = new TextView(this);
-        title.setText("源管理");
-        title.setTextColor(0xFFFFFFFF);
-        title.setTextSize(18);
-        title.setPadding(0, 0, 0, 12);
-        rightPanel.addView(title);
-
-        // 源列表（ListView）
         ListView listView = new ListView(this);
         listView.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
-        listView.setDivider(new ColorDrawable(0x44FFFFFF));
+                ViewGroup.LayoutParams.MATCH_PARENT, 350));
         listView.setDividerHeight(2);
+        listView.setDivider(new ColorDrawable(0x44FFFFFF));
         rightPanel.addView(listView);
 
-        // 输入行
         LinearLayout inputRow = new LinearLayout(this);
         inputRow.setOrientation(LinearLayout.HORIZONTAL);
-        inputRow.setPadding(0, 12, 0, 0);
+        inputRow.setPadding(0, 16, 0, 0);
 
         EditText nameInput = new EditText(this);
-        nameInput.setHint("名称（选填）");
+        nameInput.setHint("名称(选填)");
         nameInput.setTextColor(0xFFFFFFFF);
         nameInput.setHintTextColor(0xFF888888);
         nameInput.setBackgroundColor(0x33FFFFFF);
-        nameInput.setPadding(8, 8, 8, 8);
+        nameInput.setPadding(12, 12, 12, 12);
         LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
         nameLp.setMargins(0, 0, 8, 0);
         nameInput.setLayoutParams(nameLp);
         inputRow.addView(nameInput);
 
         EditText urlInput = new EditText(this);
-        urlInput.setHint("地址");
+        urlInput.setHint("地址（点击左侧提示按钮配置headers）");
         urlInput.setTextColor(0xFFFFFFFF);
         urlInput.setHintTextColor(0xFF888888);
         urlInput.setBackgroundColor(0x33FFFFFF);
-        urlInput.setPadding(8, 8, 8, 8);
+        urlInput.setPadding(12, 12, 12, 12);
         LinearLayout.LayoutParams urlLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2);
         urlLp.setMargins(0, 0, 8, 0);
         urlInput.setLayoutParams(urlLp);
@@ -2803,27 +2794,26 @@ public class LivePlayActivity extends BaseActivity {
         btnAdd.setText("确定");
         btnAdd.setBackgroundColor(0xFF03DAC5);
         btnAdd.setTextColor(0xFF000000);
+        btnAdd.setPadding(20, 12, 20, 12);
         inputRow.addView(btnAdd);
+
         rightPanel.addView(inputRow);
 
-        // 关闭按钮（放底部）
         Button btnClose = new Button(this);
         btnClose.setText("关闭");
         btnClose.setBackgroundColor(0x66FFFFFF);
         btnClose.setTextColor(0xFFFFFFFF);
-        btnClose.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        btnClose.setPadding(0, 12, 0, 0);
+        btnClose.setPadding(0, 12, 0, 12);
         rightPanel.addView(btnClose);
 
         mainLayout.addView(leftPanel);
         mainLayout.addView(rightPanel);
+
         builder.setView(mainLayout);
-
         AlertDialog dialog = builder.create();
-        dialog.getWindow().setDimAmount(0.6f);
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
 
-        // 加载数据
+        // 适配器数据
         SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
         String json = prefs.getString("source_list", "[]");
         JsonArray sourceArray = JsonParser.parseString(json).getAsJsonArray();
@@ -2835,11 +2825,10 @@ public class LivePlayActivity extends BaseActivity {
             dataList.add(new SourceItem(name, url));
         }
 
-        // 适配器（支持点击加载）
-        SourceManageAdapter adapter = new SourceManageAdapter(this, dataList, dialog);
+        // 适配器（带高亮）
+        SourceAdapter adapter = new SourceAdapter(this, dataList, dialog);
         listView.setAdapter(adapter);
 
-        // 添加按钮
         btnAdd.setOnClickListener(v -> {
             String name = nameInput.getText().toString().trim();
             String url = urlInput.getText().toString().trim();
@@ -2863,33 +2852,25 @@ public class LivePlayActivity extends BaseActivity {
             urlInput.setText("");
             Toast.makeText(this, "添加成功", Toast.LENGTH_SHORT).show();
             refreshSourceList();
-            // 自动加载第一个源（如果有）
-            if (dataList.size() == 1) {
-                loadSourceByIndex(0);
-            }
         });
 
         btnClose.setOnClickListener(v -> dialog.dismiss());
-
         dialog.show();
     }
 
-    // 源数据类（仅名称和URL）
+    // 内部数据类
     class SourceItem {
         String name, url;
-        SourceItem(String n, String u) {
-            name = n;
-            url = u;
-        }
+        SourceItem(String n, String u) { name = n; url = u; }
     }
 
-    // 适配器内部类（支持点击加载）
-    class SourceManageAdapter extends BaseAdapter {
+    // 内部适配器（支持高亮选中项）
+    class SourceAdapter extends BaseAdapter {
         private Context context;
         private List<SourceItem> data;
         private AlertDialog dialog;
 
-        public SourceManageAdapter(Context context, List<SourceItem> data, AlertDialog dialog) {
+        public SourceAdapter(Context context, List<SourceItem> data, AlertDialog dialog) {
             this.context = context;
             this.data = data;
             this.dialog = dialog;
@@ -2920,7 +2901,6 @@ public class LivePlayActivity extends BaseActivity {
                 tvUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
                 itemLayout.addView(tvUrl);
 
-                // 复制按钮
                 TextView btnCopy = new TextView(context);
                 btnCopy.setText("复制");
                 btnCopy.setTextColor(0xFFFFFFFF);
@@ -2929,7 +2909,6 @@ public class LivePlayActivity extends BaseActivity {
                 btnCopy.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 itemLayout.addView(btnCopy);
 
-                // 删除按钮
                 TextView btnDelete = new TextView(context);
                 btnDelete.setText("删除");
                 btnDelete.setTextColor(0xFFFF0000);
@@ -2951,6 +2930,16 @@ public class LivePlayActivity extends BaseActivity {
 
             tvName.setText(item.name);
             tvUrl.setText(item.url);
+
+            // 高亮：与当前选中的源索引对比
+            int selectedIdx = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+            if (position == selectedIdx) {
+                itemLayout.setBackgroundColor(0x33FFFFFF);
+                tvName.setTextColor(0xFF03DAC5);
+            } else {
+                itemLayout.setBackgroundColor(0x00000000);
+                tvName.setTextColor(0xFFFFFFFF);
+            }
 
             // 点击整行加载该源
             convertView.setOnClickListener(v -> {
@@ -2976,7 +2965,7 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
-    // 加载指定索引的源
+    // 加载指定索引的源（从SharedPreferences读取）
     private void loadSourceByIndex(int index) {
         SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
         String json = prefs.getString("source_list", "[]");
@@ -2990,7 +2979,6 @@ public class LivePlayActivity extends BaseActivity {
         Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, index);
         updateCurrentSourceName(name);
 
-        // 加载直播
         ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
             @Override public void success() {
                 runOnUiThread(() -> {
@@ -3014,7 +3002,7 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
-    // 保存源列表到SharedPreferences
+    // 保存源列表到 SharedPreferences
     private void saveSourceList(List<SourceItem> list) {
         JsonArray array = new JsonArray();
         for (SourceItem item : list) {
