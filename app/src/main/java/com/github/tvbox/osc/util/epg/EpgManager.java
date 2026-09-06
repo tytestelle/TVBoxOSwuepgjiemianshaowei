@@ -7,11 +7,14 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.AsyncTask;
 import android.text.TextUtils;
-import com.github.tvbox.osc.util.LOG;
+
+import com.github.tvbox.osc.util.FileLogger;   // 新增
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -22,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
+
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -71,23 +75,45 @@ public class EpgManager {
                     }
                 }
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+            FileLogger.write("EpgManager", "加载默认 EPG URL 失败: " + e.getMessage());
+        }
     }
 
     public void refreshEpg(RefreshCallback callback) {
-        if (TextUtils.isEmpty(epgUrl)) { if (callback != null) callback.onError("EPG URL 未设置"); return; }
+        if (TextUtils.isEmpty(epgUrl)) {
+            if (callback != null) callback.onError("EPG URL 未设置");
+            FileLogger.write("EpgManager", "刷新 EPG 失败：URL 未设置");
+            return;
+        }
         new AsyncTask<Void, Void, Boolean>() {
-            @Override protected Boolean doInBackground(Void... voids) {
+            @Override
+            protected Boolean doInBackground(Void... voids) {
                 try {
                     Request request = new Request.Builder().url(epgUrl).build();
                     Response response = httpClient.newCall(request).execute();
                     if (!response.isSuccessful()) return false;
                     String xml = response.body().string();
                     return parseAndStore(xml);
-                } catch (Exception e) { e.printStackTrace(); return false; }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    FileLogger.write("EpgManager", "下载/解析 EPG 异常: " + e.getMessage());
+                    return false;
+                }
             }
-            @Override protected void onPostExecute(Boolean success) {
-                if (callback != null) { if (success) callback.onSuccess(); else callback.onError("解析失败"); }
+
+            @Override
+            protected void onPostExecute(Boolean success) {
+                if (callback != null) {
+                    if (success) {
+                        callback.onSuccess();
+                        FileLogger.write("EpgManager", "EPG 刷新成功");
+                    } else {
+                        callback.onError("解析失败");
+                        FileLogger.write("EpgManager", "EPG 刷新失败");
+                    }
+                }
             }
         }.execute();
     }
@@ -119,9 +145,13 @@ public class EpgManager {
                             currentStart = parser.getAttributeValue(null, "start");
                             currentStop = parser.getAttributeValue(null, "stop");
                             currentChannelId = parser.getAttributeValue(null, "channel");
-                            currentTitle = null; currentDesc = null;
-                        } else if ("title".equals(tagName)) currentTitle = parser.nextText();
-                        else if ("desc".equals(tagName)) currentDesc = parser.nextText();
+                            currentTitle = null;
+                            currentDesc = null;
+                        } else if ("title".equals(tagName)) {
+                            currentTitle = parser.nextText();
+                        } else if ("desc".equals(tagName)) {
+                            currentDesc = parser.nextText();
+                        }
                         break;
                     case XmlPullParser.END_TAG:
                         if ("programme".equals(tagName) && currentChannelId != null && currentStart != null && currentStop != null) {
@@ -137,8 +167,13 @@ public class EpgManager {
                 }
                 eventType = parser.next();
             }
+            FileLogger.write("EpgManager", "EPG 数据解析并存入数据库成功");
             return true;
-        } catch (Exception e) { e.printStackTrace(); return false; }
+        } catch (Exception e) {
+            e.printStackTrace();
+            FileLogger.write("EpgManager", "解析 XML 存储失败: " + e.getMessage());
+            return false;
+        }
     }
 
     public List<EpgProgram> getProgramsForChannel(String channelName) {
@@ -179,33 +214,53 @@ public class EpgManager {
     private Date parseXmltvTime(String time) {
         try {
             if (time.length() >= 14) {
-                int year = Integer.parseInt(time.substring(0,4));
-                int month = Integer.parseInt(time.substring(4,6));
-                int day = Integer.parseInt(time.substring(6,8));
-                int hour = Integer.parseInt(time.substring(8,10));
-                int minute = Integer.parseInt(time.substring(10,12));
-                int second = Integer.parseInt(time.substring(12,14));
+                int year = Integer.parseInt(time.substring(0, 4));
+                int month = Integer.parseInt(time.substring(4, 6));
+                int day = Integer.parseInt(time.substring(6, 8));
+                int hour = Integer.parseInt(time.substring(8, 10));
+                int minute = Integer.parseInt(time.substring(10, 12));
+                int second = Integer.parseInt(time.substring(12, 14));
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
                 sdf.setTimeZone(TimeZone.getTimeZone("GMT+8"));
-                return sdf.parse(year+"-"+month+"-"+day+" "+hour+":"+minute+":"+second);
+                return sdf.parse(year + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second);
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            FileLogger.write("EpgManager", "解析时间失败: " + time);
+        }
         return new Date();
     }
 
-    public interface RefreshCallback { void onSuccess(); void onError(String msg); }
+    public interface RefreshCallback {
+        void onSuccess();
+
+        void onError(String msg);
+    }
 
     public static class EpgProgram {
-        public String title, description; public Date start, stop;
-        public EpgProgram(String t, String d, Date s, Date e) { title=t; description=d; start=s; stop=e; }
+        public String title, description;
+        public Date start, stop;
+
+        public EpgProgram(String t, String d, Date s, Date e) {
+            title = t;
+            description = d;
+            start = s;
+            stop = e;
+        }
     }
 
     private static class DBHelper extends SQLiteOpenHelper {
-        public DBHelper(Context context) { super(context, DB_NAME, null, DB_VERSION); }
-        @Override public void onCreate(SQLiteDatabase db) {
+        public DBHelper(Context context) {
+            super(context, DB_NAME, null, DB_VERSION);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
             db.execSQL("CREATE TABLE channels (channel_id TEXT PRIMARY KEY, display_name TEXT)");
             db.execSQL("CREATE TABLE programs (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id TEXT, start_time TEXT, stop_time TEXT, title TEXT, desc TEXT)");
         }
-        @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        }
     }
 }
