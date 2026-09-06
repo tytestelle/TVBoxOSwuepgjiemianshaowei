@@ -27,7 +27,7 @@
             android:scaleType="fitCenter" />
     </FrameLayout>
 
-    <!-- ========== 酷9：全屏手势触摸层 ========== -->
+    <!-- ========== 全屏手势触摸层 ========== -->
     <View
         android:id="@+id/gesture_overlay"
         android:layout_width="match_parent"
@@ -36,52 +36,40 @@
         android:clickable="true"
         android:focusable="true" />
 
-    <!-- ========== 顶部信息 ========== -->
-    <TextView
-        android:id="@+id/tvChannel"
+    <!-- ========== 顶部切换按钮栏 ========== -->
+    <LinearLayout
+        android:id="@+id/top_button_bar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
-        android:layout_marginTop="30dp"
-        android:layout_marginEnd="60dp"
-        android:textColor="@android:color/white"
-        android:textSize="16sp"
-        android:visibility="invisible" />
+        android:orientation="horizontal"
+        android:padding="10dp"
+        android:background="#88000000"
+        android:visibility="visible">
 
-    <TextView
-        android:id="@+id/tvTime"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="60dp"
-        android:layout_marginTop="30dp"
-        android:textColor="@android:color/white"
-        android:textSize="16sp"
-        android:visibility="gone" />
+        <Button
+            android:id="@+id/btn_program_list"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="节目单"
+            android:textColor="@android:color/white"
+            android:background="#DD333333"
+            android:padding="8dp"
+            android:textSize="14sp" />
 
-    <TextView
-        android:id="@+id/tvNetSpeed"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="60dp"
-        android:layout_marginTop="60dp"
-        android:textColor="@android:color/white"
-        android:textSize="14sp"
-        android:visibility="gone" />
+        <Button
+            android:id="@+id/btn_channel_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="频道组"
+            android:textColor="@android:color/white"
+            android:background="#DD333333"
+            android:padding="8dp"
+            android:textSize="14sp"
+            android:visibility="gone" />
+    </LinearLayout>
 
-    <TextView
-        android:id="@+id/tvResolution"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="60dp"
-        android:layout_marginEnd="60dp"
-        android:textColor="@android:color/white"
-        android:textSize="14sp"
-        android:visibility="gone" />
-
-    <!-- ========== 左侧频道列表（酷9风格，三列） ========== -->
+    <!-- ========== 左侧频道列表（三列） ========== -->
     <LinearLayout
         android:id="@+id/tvLeftChannnelListLayout"
         android:layout_width="720dp"
@@ -91,21 +79,21 @@
         android:visibility="invisible"
         android:background="#CC000000">
 
-        <!-- 第一列：源列表（我的收藏/自定义源） -->
+        <!-- 源列表 -->
         <com.owen.tvrecyclerview.widget.TvRecyclerView
             android:id="@+id/mSourceListView"
             android:layout_width="160dp"
             android:layout_height="match_parent"
             android:padding="8dp" />
 
-        <!-- 第二列：分组列表 -->
+        <!-- 分组列表 -->
         <com.owen.tvrecyclerview.widget.TvRecyclerView
             android:id="@+id/mGroupGridView"
             android:layout_width="160dp"
             android:layout_height="match_parent"
             android:padding="8dp" />
 
-        <!-- 第三列：频道列表 -->
+        <!-- 频道列表 -->
         <com.owen.tvrecyclerview.widget.TvRecyclerView
             android:id="@+id/mChannelGridView"
             android:layout_width="0dp"
@@ -113,7 +101,6 @@
             android:layout_weight="2"
             android:padding="8dp" />
 
-        <!-- 新增：当前源名称显示（可选） -->
         <TextView
             android:id="@+id/tv_current_source_name"
             android:layout_width="wrap_content"
@@ -122,7 +109,7 @@
             tools:text="当前源：测试源" />
     </LinearLayout>
 
-    <!-- ========== 右侧设置面板（保持不变） ========== -->
+    <!-- ========== 右侧设置面板（保留） ========== -->
     <LinearLayout
         android:id="@+id/tvRightSettingLayout"
         android:layout_width="400dp"
@@ -145,7 +132,52 @@
             android:padding="8dp" />
     </LinearLayout>
 
-    <!-- ========== 酷9风格底部信息栏 ========== -->
+    <!-- ========== 全屏节目单覆盖层 ========== -->
+    <RelativeLayout
+        android:id="@+id/ll_epg_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000"
+        android:visibility="gone">
+
+        <!-- 节目单日期选择 -->
+        <com.owen.tvrecyclerview.widget.TvRecyclerView
+            android:id="@+id/mEpgDateGridView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:padding="10dp"
+            android:background="#44000000" />
+
+        <!-- 节目单列表 -->
+        <com.owen.tvrecyclerview.widget.TvRecyclerView
+            android:id="@+id/lv_epg"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_below="@+id/mEpgDateGridView"
+            android:padding="10dp" />
+
+        <!-- 无节目提示 -->
+        <TextView
+            android:id="@+id/txtNoEpg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="暂无节目信息"
+            android:textColor="#AAAAAA"
+            android:textSize="18sp"
+            android:visibility="gone" />
+
+        <!-- 加载动画 -->
+        <ProgressBar
+            android:id="@+id/ll_right_top_loading"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_centerInParent="true"
+            android:visibility="gone" />
+    </RelativeLayout>
+
+    <!-- ========== 酷9风格底部信息栏（左右留边距） ========== -->
     <LinearLayout
         android:id="@+id/ll_bottom_info_bar"
         android:layout_width="match_parent"
@@ -154,7 +186,11 @@
         android:orientation="vertical"
         android:visibility="gone"
         android:background="#CC000000"
-        android:padding="16dp">
+        android:padding="12dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="30dp"
+        android:elevation="4dp">
 
         <!-- 台标与频道信息行 -->
         <LinearLayout
@@ -164,8 +200,8 @@
             android:gravity="center_vertical">
 
             <FrameLayout
-                android:layout_width="60dp"
-                android:layout_height="60dp">
+                android:layout_width="50dp"
+                android:layout_height="50dp">
 
                 <ImageView
                     android:id="@+id/img_live_icon"
@@ -186,7 +222,7 @@
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
                         android:textColor="@android:color/white"
-                        android:textSize="20sp" />
+                        android:textSize="18sp" />
                 </FrameLayout>
             </FrameLayout>
 
@@ -202,7 +238,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="@android:color/white"
-                    android:textSize="20sp"
+                    android:textSize="18sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -226,14 +262,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="8dp">
+            android:layout_marginTop="6dp">
 
             <TextView
                 android:id="@+id/tv_current_program_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="#FFCC00"
-                android:textSize="16sp" />
+                android:textSize="16sp"
+                android:maxLines="1"
+                android:ellipsize="end" />
 
             <TextView
                 android:id="@+id/tv_next_program_name"
@@ -241,27 +279,29 @@
                 android:layout_height="wrap_content"
                 android:textColor="#AAAAAA"
                 android:textSize="14sp"
-                android:layout_marginTop="4dp" />
+                android:layout_marginTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end" />
         </LinearLayout>
 
-        <!-- ===== 新增描述文本 ===== -->
+        <!-- 描述（可选） -->
         <TextView
             android:id="@+id/tv_desc"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="#FFFFFF"
             android:textSize="13sp"
-            android:maxLines="3"
+            android:maxLines="2"
             android:ellipsize="end"
             android:visibility="gone"
             android:layout_marginTop="4dp" />
 
-        <!-- 时间与进度条行 -->
+        <!-- 时间与进度条 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:gravity="center_vertical">
 
             <TextView
@@ -292,113 +332,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- ========== 原有EPG底部栏（保留兼容） ========== -->
-    <RelativeLayout
-        android:id="@+id/ll_epg"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/tv_shownum"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/txtNoEpg"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <View
-            android:id="@+id/divLoadEpg"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <View
-            android:id="@+id/divLoadEpgDivider"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <View
-            android:id="@+id/divLoadEpgleft"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <LinearLayout
-            android:id="@+id/divEPG"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:visibility="gone">
-
-            <com.owen.tvrecyclerview.widget.TvRecyclerView
-                android:id="@+id/mEpgDateGridView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:visibility="gone" />
-
-            <com.owen.tvrecyclerview.widget.TvRecyclerView
-                android:id="@+id/lv_epg"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/tv_right_top_channel_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/tv_right_top_epg_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <ImageView
-            android:id="@+id/iv_circle_bg"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:visibility="gone" />
-
-        <ImageView
-            android:id="@+id/iv_back_bg"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <View
-            android:id="@+id/ll_right_top_loading"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <View
-            android:id="@+id/ll_right_top_huikan"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/tv_current_program"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/tv_next_program"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-    </RelativeLayout>
-
-    <!-- ========== 回看控制器 ========== -->
+    <!-- ========== 回看控制器（保持不变） ========== -->
     <RelativeLayout
         android:id="@+id/backcontroller"
         android:layout_width="match_parent"
