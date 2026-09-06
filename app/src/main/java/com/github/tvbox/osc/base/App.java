@@ -32,6 +32,10 @@ import com.github.catvod.crawler.JsLoader;
 import me.jessyan.autosize.AutoSizeConfig;
 import me.jessyan.autosize.unit.Subunits;
 
+// 注意：以下两个类需根据实际包名导入，若已存在则无需添加
+// import com.github.tvbox.osc.epg.EpgDataLoader;
+// import com.github.tvbox.osc.epg.EpgManager;
+
 /**
  * @author pj567
  * @date :2020/12/17
@@ -112,6 +116,20 @@ public class App extends MultiDexApplication {
         safeInit("PlayerHelper", new Runnable() { @Override public void run() { PlayerHelper.init(); } });
         safeInit("QuickJSLoader", new Runnable() { @Override public void run() { QuickJSLoader.init(); } });
         safeInit("cleanPlayerCache", new Runnable() { @Override public void run() { FileUtils.cleanPlayerCache(); } });
+
+        // ========== 新增 EPG 初始化（6.1） ==========
+        safeInit("Epg", new Runnable() {
+            @Override
+            public void run() {
+                // 加载 epg_data.json 映射
+                EpgDataLoader.load(App.this);
+                // 初始化 EPG 管理器
+                EpgManager.getInstance(App.this);
+                // 首次下载 EPG（可传 null 或自定义回调）
+                EpgManager.getInstance(App.this).refreshEpg(null);
+            }
+        });
+        // ========== 新增结束 ==========
     }
 
     private void ensureExternalDirs() {
