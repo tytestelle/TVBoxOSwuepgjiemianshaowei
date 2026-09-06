@@ -9,7 +9,7 @@ import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.chad.library.adapter.base.BaseViewHolder;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.bean.LiveChannelItem;
-import com.github.tvbox.osc.logo.LogoManager; // 请根据实际包名调整
+import com.github.tvbox.osc.util.logo.LogoManager;; // 请根据实际包名调整
 
 import java.io.File;
 import java.util.ArrayList;
