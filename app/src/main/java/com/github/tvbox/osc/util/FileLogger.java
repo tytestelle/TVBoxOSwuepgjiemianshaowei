@@ -1,7 +1,6 @@
 package com.github.tvbox.osc.util;
 
 import android.content.Context;
-import android.os.Environment;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -17,8 +16,7 @@ public class FileLogger {
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
 
     private FileLogger(Context context) {
-        // 使用应用私有目录 /data/data/包名/files/logs/
-        File filesDir = context.getFilesDir(); // 对应 /data/data/包名/files/
+        File filesDir = context.getFilesDir();
         File logDir = new File(filesDir, LOG_DIR);
         if (!logDir.exists()) {
             logDir.mkdirs();
@@ -56,7 +54,6 @@ public class FileLogger {
         }
     }
 
-    // 获取日志文件路径（方便调试）
     public static String getLogFilePath() {
         return instance != null ? instance.logFile.getAbsolutePath() : null;
     }
