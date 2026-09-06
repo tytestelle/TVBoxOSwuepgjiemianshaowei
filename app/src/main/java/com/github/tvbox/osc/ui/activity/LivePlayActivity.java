@@ -2683,9 +2683,21 @@ public class LivePlayActivity extends BaseActivity {
                         }
                     });
                 } else if (position == 1) {
-                    hsEpg.clear();
-                    if (channel_Name != null) getEpg(new Date());
-                    Toast.makeText(this, "EPG已更新", Toast.LENGTH_SHORT).show();
+                    // 使用 EpgManager 刷新所有频道的 EPG
+                    EpgManager.getInstance(this).refreshEpg(new EpgManager.RefreshCallback() {
+                        @Override
+                        public void onSuccess() {
+                            Toast.makeText(LivePlayActivity.this, "EPG 更新成功", Toast.LENGTH_SHORT).show();
+                            // 刷新当前频道的 EPG 显示
+                            if (channel_Name != null) {
+                                getEpg(new Date());
+                            }
+                        }
+                        @Override
+                        public void onError(String msg) {
+                            Toast.makeText(LivePlayActivity.this, "EPG 更新失败: " + msg, Toast.LENGTH_SHORT).show();
+                        }
+                    });
                 }
                 break;
             case 9:
