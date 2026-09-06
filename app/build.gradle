@@ -161,6 +161,9 @@ dependencies {
 
     // 升级 okhttp 至 4.10.0（符合要求）
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+    // 添加 dnsoverhttps 支持，修复 DnsOverHttps 类找不到的问题
+    implementation 'com.squareup.okhttp3:okhttp-dnsoverhttps:4.10.0'
+
     annotationProcessor 'androidx.room:room-compiler:2.3.0'
     implementation 'androidx.room:room-runtime:2.3.0'
     implementation 'androidx.multidex:multidex:2.0.1'
