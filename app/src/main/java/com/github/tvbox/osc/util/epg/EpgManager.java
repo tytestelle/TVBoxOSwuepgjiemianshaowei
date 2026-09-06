@@ -146,6 +146,7 @@ public class EpgManager {
                             currentDisplayName = null;
                             currentIcon = null;
                         } else if ("display-name".equals(tagName) && currentChannelId != null) {
+                            // 重要：提取 display-name 文本，并注意可能包含 lang 属性，但只取文本
                             currentDisplayName = parser.nextText();
                         } else if ("icon".equals(tagName) && currentChannelId != null) {
                             currentIcon = parser.getAttributeValue(null, "src");
@@ -163,6 +164,7 @@ public class EpgManager {
                         break;
                     case XmlPullParser.END_TAG:
                         if ("channel".equals(tagName)) {
+                            // 只有 channel 结束时才插入，确保 currentDisplayName 非空
                             if (currentChannelId != null && currentDisplayName != null) {
                                 channelValues.clear();
                                 channelValues.put("channel_id", currentChannelId);
@@ -201,9 +203,9 @@ public class EpgManager {
         return count;
     }
 
-    // ========== 核心查询：频道名 → epgid → display-name → channel_id ==========
+    // ========== 核心查询：频道名 → epgid → channel_id ==========
     public List<EpgProgram> getProgramsForChannel(String channelName) {
-        // 1. 从 epg_data.json 获取 epgid
+        // 1. 从 epg_data.json 获取 epgId
         String epgId = EpgDataLoader.getEpgId(channelName);
         if (epgId == null) {
             FileLogger.write("EpgManager", "未找到 epgId: " + channelName);
@@ -211,7 +213,7 @@ public class EpgManager {
         }
         FileLogger.write("EpgManager", "频道: " + channelName + " -> epgId: " + epgId);
 
-        // 2. 用 epgId 作为 display_name 去 channels 表查询 channel_id
+        // 2. 用 epgId 作为 display_name 查询 channel_id
         String channelId = null;
         Cursor c = db.query("channels", new String[]{"channel_id"}, "display_name=?", new String[]{epgId}, null, null, null);
         if (c.moveToFirst()) {
@@ -219,8 +221,18 @@ public class EpgManager {
         }
         c.close();
 
+        // 如果找不到，尝试用 epgId 作为 channel_id 直接查询（某些 XML 中 channel id 等于 epgId）
         if (channelId == null) {
-            FileLogger.write("EpgManager", "未在 EPG 中找到 display_name: " + epgId);
+            Cursor c2 = db.query("channels", new String[]{"channel_id"}, "channel_id=?", new String[]{epgId}, null, null, null);
+            if (c2.moveToFirst()) {
+                channelId = c2.getString(0);
+                FileLogger.write("EpgManager", "通过 channel_id 找到: " + epgId);
+            }
+            c2.close();
+        }
+
+        if (channelId == null) {
+            FileLogger.write("EpgManager", "未在 EPG 中找到 display_name 或 channel_id: " + epgId);
             return new ArrayList<>();
         }
 
