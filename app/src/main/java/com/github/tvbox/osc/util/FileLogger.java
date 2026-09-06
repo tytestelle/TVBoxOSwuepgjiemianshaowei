@@ -1,6 +1,7 @@
 package com.github.tvbox.osc.util;
 
 import android.content.Context;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
@@ -14,20 +15,34 @@ public class FileLogger {
     private File logFile;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
 
+    // 启动时间戳，用于所有日志文件命名（格式：yyyyMMdd_HHmmss）
+    private static String startTimestamp;
+
     private FileLogger(Context context) {
         File filesDir = context.getFilesDir();
         File logDir = new File(filesDir, LOG_DIR);
         if (!logDir.exists()) {
             logDir.mkdirs();
         }
-        String date = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date());
-        logFile = new File(logDir, "log_" + date + ".txt");
+        // 如果还未生成时间戳，则生成（保证单例初始化时生成）
+        if (startTimestamp == null) {
+            startTimestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        }
+        // 日志文件名：log_<timestamp>.txt
+        logFile = new File(logDir, "log_" + startTimestamp + ".txt");
     }
 
     public static synchronized void init(Context context) {
         if (instance == null) {
             instance = new FileLogger(context);
         }
+    }
+
+    /**
+     * 获取本次启动的时间戳字符串，供其他模块使用（例如 EPG 映射日志）
+     */
+    public static String getStartTimestamp() {
+        return startTimestamp;
     }
 
     public static void write(String tag, String msg) {
