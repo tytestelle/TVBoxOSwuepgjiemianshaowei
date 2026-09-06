@@ -10,6 +10,7 @@ import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.CountDownTimer;
@@ -75,6 +76,7 @@ import com.github.tvbox.osc.util.HistoryHelper;
 import com.github.tvbox.osc.util.live.TxtSubscribe;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.lzy.okgo.OkGo;
 import com.lzy.okgo.callback.AbsCallback;
 import com.lzy.okgo.model.Response;
@@ -507,8 +509,12 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
+    // ====== 修改后的 refreshSourceList() ======
     private void refreshSourceList() {
-        JsonArray sourceArray = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
+        // 从 SharedPreferences 读取数据
+        SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
+        String json = prefs.getString("source_list", "[]");
+        JsonArray sourceArray = JsonParser.parseString(json).getAsJsonArray();
         List<String> sourceNames = new ArrayList<>();
         if (sourceArray == null || sourceArray.size() == 0) {
             sourceNames.add("无源");
@@ -519,16 +525,13 @@ public class LivePlayActivity extends BaseActivity {
                 sourceNames.add(name);
             }
         }
-        if (liveSourceAdapter != null) {
-            liveSourceAdapter.setNewData(sourceNames);
-            int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
-            if (selected >= 0 && selected < sourceNames.size()) {
-                liveSourceAdapter.setSelectedPosition(selected);
-            } else {
-                liveSourceAdapter.setSelectedPosition(0);
-            }
+        liveSourceAdapter.setNewData(sourceNames);
+        // 默认选中第一个
+        if (sourceNames.size() > 0) {
+            liveSourceAdapter.setSelectedPosition(0);
+        } else {
+            liveSourceAdapter.setSelectedPosition(0);
         }
-        android.util.Log.i("LivePlay", "refreshSourceList 源列表数量：" + sourceNames.size());
     }
 
     private void switchToSource(int position) {
@@ -2548,6 +2551,7 @@ public class LivePlayActivity extends BaseActivity {
         });
     }
 
+    // ====== 修改后的 clickSettingItem (case 7) ======
     private void clickSettingItem(int position) {
         int realGroupIndex = liveSettingGroupAdapter != null ? liveSettingGroupAdapter.getSelectedGroupIndex() : -1;
 
@@ -2664,18 +2668,38 @@ public class LivePlayActivity extends BaseActivity {
                     LiveSourceManageDialog dialog = new LiveSourceManageDialog(this, () -> {
                         runOnUiThread(() -> {
                             refreshSourceList();
-                            showChannelList(); // 强制显示左侧面板以便查看更新后的源列表
-                            JsonArray list = Hawk.get(HawkConfig.LIVE_SOURCE_LIST, new JsonArray());
-                            int listSize = list != null ? list.size() : 0;
-                            android.util.Log.i("LivePlay", "源列表数量：" + listSize);
-                            Toast.makeText(LivePlayActivity.this, "源列表已更新，数量：" + listSize, Toast.LENGTH_SHORT).show();
-                            if (listSize > 0) {
-                                int selected = Hawk.get(HawkConfig.LIVE_SOURCE_SELECTED, 0);
-                                if (selected >= listSize) {
-                                    Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, 0);
-                                    selected = 0;
-                                }
-                                switchToSource(selected);
+                            // 可选：自动切换第一个源
+                            SharedPreferences prefs = App.getInstance().getSharedPreferences("live_source_pref", Context.MODE_PRIVATE);
+                            String json = prefs.getString("source_list", "[]");
+                            JsonArray list = JsonParser.parseString(json).getAsJsonArray();
+                            if (list.size() > 0) {
+                                JsonObject obj = list.get(0).getAsJsonObject();
+                                String url = obj.get("url").getAsString();
+                                String name = obj.get("name").getAsString();
+                                Hawk.put(HawkConfig.LIVE_API_URL, url);
+                                Hawk.put(HawkConfig.LIVE_SOURCE_SELECTED, 0);
+                                updateCurrentSourceName(name);
+                                // 加载直播列表
+                                ApiConfig.get().loadLiveConfig(false, new ApiConfig.LoadConfigCallback() {
+                                    @Override public void success() {
+                                        runOnUiThread(() -> {
+                                            initLiveChannelList();
+                                            if (liveChannelGroupAdapter != null) {
+                                                liveChannelGroupAdapter.setNewData(new ArrayList<>(liveChannelGroupList));
+                                            }
+                                            if (!liveChannelGroupList.isEmpty()) {
+                                                selectChannelGroup(0, false, 0);
+                                            }
+                                            refreshSourceList();
+                                        });
+                                    }
+                                    @Override public void error(String msg) {
+                                        runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
+                                    }
+                                    @Override public void notice(String msg) {
+                                        runOnUiThread(() -> Toast.makeText(LivePlayActivity.this, msg, Toast.LENGTH_SHORT).show());
+                                    }
+                                });
                             } else {
                                 setEmptyLiveChannelList();
                             }
