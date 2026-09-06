@@ -79,6 +79,7 @@ public class EpgManager {
                 String epgid = item.get("epgid").getAsString();
                 String name = item.get("name").getAsString();
                 epgDataMap.put(epgid, name);
+                FileLogger.write("EpgManager", "加载映射: " + epgid + " -> " + name);
             }
             FileLogger.write("EpgManager", "加载 epg_data.json 成功，共 " + epgDataMap.size() + " 条");
         } catch (Exception e) {
@@ -107,13 +108,13 @@ public class EpgManager {
                 name = name.trim();
                 if (name.isEmpty()) continue;
                 if (trimmed.equalsIgnoreCase(name)) {
+                    FileLogger.write("EpgManager", "精确匹配: " + trimmed + " -> " + epgId);
                     return epgId;
                 }
             }
         }
 
         // 2. 包含匹配（频道名包含在某个 name 中，或 name 包含在频道名中）
-        //    优先 name 包含 trimmed（例如 "驚豔成人電影台 HD" 包含 "驚豔成人電影台"）
         for (Map.Entry<String, String> entry : epgDataMap.entrySet()) {
             String epgId = entry.getKey();
             String nameList = entry.getValue();
@@ -122,10 +123,12 @@ public class EpgManager {
                 name = name.trim();
                 if (name.isEmpty()) continue;
                 if (trimmed.contains(name) || name.contains(trimmed)) {
+                    FileLogger.write("EpgManager", "包含匹配: " + trimmed + " -> " + epgId + " (命中: " + name + ")");
                     return epgId;
                 }
             }
         }
+        FileLogger.write("EpgManager", "未找到匹配的 epgId: " + trimmed);
         return null;
     }
 
@@ -210,6 +213,7 @@ public class EpgManager {
             String currentStop = null;
             String currentTitle = null;
             String currentDesc = null;
+            String currentChannelIdForProgram = null;
 
             ContentValues channelValues = new ContentValues();
             ContentValues programValues = new ContentValues();
@@ -222,14 +226,17 @@ public class EpgManager {
                             currentChannelId = parser.getAttributeValue(null, "id");
                             currentDisplayName = null;
                             currentIcon = null;
+                            FileLogger.write("EpgManager", "开始解析 channel id: " + currentChannelId);
                         } else if ("display-name".equals(tagName) && currentChannelId != null) {
                             currentDisplayName = parser.nextText();
+                            FileLogger.write("EpgManager", "提取 display-name: " + currentDisplayName + " (channel id: " + currentChannelId + ")");
                         } else if ("icon".equals(tagName) && currentChannelId != null) {
                             currentIcon = parser.getAttributeValue(null, "src");
+                            FileLogger.write("EpgManager", "提取 icon: " + currentIcon + " (channel id: " + currentChannelId + ")");
                         } else if ("programme".equals(tagName)) {
+                            currentChannelIdForProgram = parser.getAttributeValue(null, "channel");
                             currentStart = parser.getAttributeValue(null, "start");
                             currentStop = parser.getAttributeValue(null, "stop");
-                            currentChannelId = parser.getAttributeValue(null, "channel");
                             currentTitle = null;
                             currentDesc = null;
                         } else if ("title".equals(tagName)) {
@@ -245,23 +252,47 @@ public class EpgManager {
                                 channelValues.put("channel_id", currentChannelId);
                                 channelValues.put("display_name", currentDisplayName);
                                 if (currentIcon != null) channelValues.put("icon", currentIcon);
-                                db.insert("channels", null, channelValues);
+                                long result = db.insert("channels", null, channelValues);
+                                FileLogger.write("EpgManager", "插入频道: " + currentDisplayName + " id=" + currentChannelId + " 结果=" + result);
+                            } else {
+                                FileLogger.write("EpgManager", "频道数据不完整: id=" + currentChannelId + ", display_name=" + currentDisplayName);
                             }
+                            // 重置
+                            currentChannelId = null;
+                            currentDisplayName = null;
+                            currentIcon = null;
                         } else if ("programme".equals(tagName)) {
-                            if (currentChannelId != null && currentStart != null && currentStop != null) {
+                            if (currentChannelIdForProgram != null && currentStart != null && currentStop != null) {
                                 programValues.clear();
-                                programValues.put("channel_id", currentChannelId);
+                                programValues.put("channel_id", currentChannelIdForProgram);
                                 programValues.put("start_time", currentStart);
                                 programValues.put("stop_time", currentStop);
                                 programValues.put("title", currentTitle != null ? currentTitle : "");
                                 programValues.put("desc", currentDesc != null ? currentDesc : "");
-                                db.insert("programs", null, programValues);
+                                long result = db.insert("programs", null, programValues);
+                                if (result == -1) {
+                                    FileLogger.write("EpgManager", "插入节目失败: channel=" + currentChannelIdForProgram + " start=" + currentStart);
+                                }
+                            } else {
+                                FileLogger.write("EpgManager", "节目数据不完整: channel=" + currentChannelIdForProgram + ", start=" + currentStart + ", stop=" + currentStop);
                             }
+                            // 重置
+                            currentChannelIdForProgram = null;
+                            currentStart = null;
+                            currentStop = null;
+                            currentTitle = null;
+                            currentDesc = null;
                         }
                         break;
                 }
                 eventType = parser.next();
             }
+            // 打印所有已插入的频道，用于调试
+            Cursor debug = db.query("channels", new String[]{"channel_id", "display_name"}, null, null, null, null, null);
+            while (debug.moveToNext()) {
+                FileLogger.write("EpgManager", "DB频道: id=" + debug.getString(0) + ", display_name=" + debug.getString(1));
+            }
+            debug.close();
             FileLogger.write("EpgManager", "解析完成，节目数: " + getProgramCount());
             return true;
         } catch (Exception e) {
@@ -280,21 +311,23 @@ public class EpgManager {
 
     // ======================== 查询节目 ========================
     public List<EpgProgram> getProgramsForChannel(String channelName) {
+        List<EpgProgram> programs = new ArrayList<>();
         // 1. 获取 epgId
         String epgId = getEpgIdByChannelName(channelName);
         if (epgId == null) {
             FileLogger.write("EpgManager", "未找到 epgId: " + channelName);
-            return new ArrayList<>();
+            return programs;
         }
         FileLogger.write("EpgManager", "频道: " + channelName + " -> epgId: " + epgId);
 
         // 2. 用 epgId 作为 display_name 查询 channel_id
         String channelId = null;
-        Cursor c = db.query("channels", new String[]{"channel_id", "icon"}, "display_name=?", new String[]{epgId}, null, null, null);
         String iconUrl = null;
+        Cursor c = db.query("channels", new String[]{"channel_id", "icon"}, "display_name=?", new String[]{epgId}, null, null, null);
         if (c.moveToFirst()) {
             channelId = c.getString(0);
             iconUrl = c.getString(1);
+            FileLogger.write("EpgManager", "通过 display_name 找到 channel_id: " + channelId);
         }
         c.close();
 
@@ -311,7 +344,13 @@ public class EpgManager {
 
         if (channelId == null) {
             FileLogger.write("EpgManager", "未在 EPG 中找到 display_name 或 channel_id: " + epgId);
-            return new ArrayList<>();
+            // 调试：打印所有 display_name
+            Cursor debug = db.query("channels", new String[]{"display_name"}, null, null, null, null, null);
+            while (debug.moveToNext()) {
+                FileLogger.write("EpgManager", "DB中的 display_name: " + debug.getString(0));
+            }
+            debug.close();
+            return programs;
         }
 
         FileLogger.write("EpgManager", "找到 channel_id: " + channelId);
@@ -322,7 +361,6 @@ public class EpgManager {
         }
 
         // 4. 查询节目
-        List<EpgProgram> programs = new ArrayList<>();
         Cursor cur = db.query("programs", null, "channel_id=?", new String[]{channelId}, null, null, "start_time ASC");
         while (cur.moveToNext()) {
             String start = cur.getString(cur.getColumnIndex("start_time"));
@@ -376,7 +414,7 @@ public class EpgManager {
                 return;
             }
 
-            // 透明化处理：将白色背景（或接近白色的像素）转为透明
+            // 透明化处理：将白色背景转为透明
             Bitmap processed = makeTransparent(bitmap);
             FileOutputStream fos = new FileOutputStream(iconFile);
             processed.compress(Bitmap.CompressFormat.PNG, 100, fos);
@@ -389,7 +427,6 @@ public class EpgManager {
 
     private Bitmap makeTransparent(Bitmap src) {
         // 简单示例：将白色 (RGB 接近 255,255,255) 设置为透明
-        // 实际可根据需要调整阈值
         int width = src.getWidth();
         int height = src.getHeight();
         Bitmap result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -401,7 +438,6 @@ public class EpgManager {
             int r = (color >> 16) & 0xFF;
             int g = (color >> 8) & 0xFF;
             int b = color & 0xFF;
-            // 如果 RGB 都大于 240，视为白色，设为透明
             if (r > 240 && g > 240 && b > 240) {
                 pixels[i] = 0x00000000; // 完全透明
             }
