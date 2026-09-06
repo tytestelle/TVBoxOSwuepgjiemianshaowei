@@ -60,7 +60,7 @@ public class LiveSourceManageDialog extends Dialog {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // ----- 构建主布局 -----
+        // 构建主布局
         LinearLayout root = new LinearLayout(getContext());
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setPadding(24, 24, 24, 24);
@@ -69,7 +69,7 @@ public class LiveSourceManageDialog extends Dialog {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // 左侧：二维码
+        // 左侧二维码
         LinearLayout leftPanel = new LinearLayout(getContext());
         leftPanel.setOrientation(LinearLayout.VERTICAL);
         leftPanel.setGravity(Gravity.CENTER);
@@ -87,7 +87,7 @@ public class LiveSourceManageDialog extends Dialog {
         tvDeviceInfo.setPadding(0, 12, 0, 0);
         leftPanel.addView(tvDeviceInfo);
 
-        // 右侧：列表 + 输入
+        // 右侧列表+输入
         LinearLayout rightPanel = new LinearLayout(getContext());
         rightPanel.setOrientation(LinearLayout.VERTICAL);
         rightPanel.setPadding(16, 0, 0, 0);
@@ -159,7 +159,7 @@ public class LiveSourceManageDialog extends Dialog {
         root.addView(rightPanel);
         setContentView(root);
 
-        // 设置窗口尺寸（更小一些）
+        // 窗口尺寸
         Window window = getWindow();
         if (window != null) {
             WindowManager.LayoutParams params = window.getAttributes();
@@ -202,7 +202,6 @@ public class LiveSourceManageDialog extends Dialog {
         return "127.0.0.1";
     }
 
-    // 从 SharedPreferences 加载数据
     private void loadData() {
         SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         String json = prefs.getString(KEY_SOURCE_LIST, "[]");
@@ -217,7 +216,6 @@ public class LiveSourceManageDialog extends Dialog {
         adapter.setData(list);
     }
 
-    // 保存到 SharedPreferences
     private void saveData(List<SourceItem> list) {
         JsonArray array = new JsonArray();
         for (SourceItem item : list) {
@@ -228,7 +226,6 @@ public class LiveSourceManageDialog extends Dialog {
         }
         SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         prefs.edit().putString(KEY_SOURCE_LIST, array.toString()).apply();
-        // 触发回调
         if (listener != null) {
             listener.onSourceChanged();
         }
@@ -257,6 +254,11 @@ public class LiveSourceManageDialog extends Dialog {
         etName.setText("");
         etUrl.setText("");
         Toast.makeText(getContext(), "添加成功", Toast.LENGTH_SHORT).show();
+
+        // 调试：打印保存后的数据
+        SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        String saved = prefs.getString(KEY_SOURCE_LIST, "[]");
+        android.util.Log.i("LiveSourceDialog", "保存后数据：" + saved);
     }
 
     private String extractNameFromUrl(String url) {
@@ -310,7 +312,8 @@ public class LiveSourceManageDialog extends Dialog {
                 tvName.setId(R.id.tv_name);
                 tvName.setTextColor(0xFFFFFFFF);
                 tvName.setTextSize(15);
-                tvName.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+                LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+                tvName.setLayoutParams(nameLp);
                 itemLayout.addView(tvName);
 
                 // URL
@@ -318,10 +321,31 @@ public class LiveSourceManageDialog extends Dialog {
                 tvUrl.setId(R.id.tv_url);
                 tvUrl.setTextColor(0xFFAAAAAA);
                 tvUrl.setTextSize(12);
-                tvUrl.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
+                LinearLayout.LayoutParams urlLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2);
+                tvUrl.setLayoutParams(urlLp);
                 itemLayout.addView(tvUrl);
 
-                // 复制按钮
+                // 上移
+                TextView btnUp = new TextView(getContext());
+                btnUp.setId(R.id.btn_up);
+                btnUp.setText("↑");
+                btnUp.setTextColor(0xFFFFFFFF);
+                btnUp.setBackgroundColor(0x33666666);
+                btnUp.setPadding(8, 4, 8, 4);
+                btnUp.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                itemLayout.addView(btnUp);
+
+                // 下移
+                TextView btnDown = new TextView(getContext());
+                btnDown.setId(R.id.btn_down);
+                btnDown.setText("↓");
+                btnDown.setTextColor(0xFFFFFFFF);
+                btnDown.setBackgroundColor(0x33666666);
+                btnDown.setPadding(8, 4, 8, 4);
+                btnDown.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                itemLayout.addView(btnDown);
+
+                // 复制
                 TextView btnCopy = new TextView(getContext());
                 btnCopy.setId(R.id.btn_copy);
                 btnCopy.setText("复制");
@@ -331,7 +355,7 @@ public class LiveSourceManageDialog extends Dialog {
                 btnCopy.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 itemLayout.addView(btnCopy);
 
-                // 删除按钮
+                // 删除
                 TextView btnDelete = new TextView(getContext());
                 btnDelete.setId(R.id.btn_delete);
                 btnDelete.setText("删除");
@@ -350,20 +374,40 @@ public class LiveSourceManageDialog extends Dialog {
 
             TextView tvName = itemLayout.findViewById(R.id.tv_name);
             TextView tvUrl = itemLayout.findViewById(R.id.tv_url);
+            TextView btnUp = itemLayout.findViewById(R.id.btn_up);
+            TextView btnDown = itemLayout.findViewById(R.id.btn_down);
             TextView btnCopy = itemLayout.findViewById(R.id.btn_copy);
             TextView btnDelete = itemLayout.findViewById(R.id.btn_delete);
 
             tvName.setText(item.name);
             tvUrl.setText(item.url);
 
-            // 复制
+            btnUp.setOnClickListener(v -> {
+                if (position > 0) {
+                    SourceItem prev = data.get(position - 1);
+                    data.set(position - 1, item);
+                    data.set(position, prev);
+                    notifyDataSetChanged();
+                    saveData(data);
+                }
+            });
+
+            btnDown.setOnClickListener(v -> {
+                if (position < data.size() - 1) {
+                    SourceItem next = data.get(position + 1);
+                    data.set(position + 1, item);
+                    data.set(position, next);
+                    notifyDataSetChanged();
+                    saveData(data);
+                }
+            });
+
             btnCopy.setOnClickListener(v -> {
                 ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
                 cm.setText(item.url);
                 Toast.makeText(getContext(), "已复制", Toast.LENGTH_SHORT).show();
             });
 
-            // 删除
             btnDelete.setOnClickListener(v -> {
                 data.remove(position);
                 notifyDataSetChanged();
