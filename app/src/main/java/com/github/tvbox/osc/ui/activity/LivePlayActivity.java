@@ -244,7 +244,7 @@ public class LivePlayActivity extends BaseActivity {
     private View divLoadEpgDivider;
     private View divLoadEpgleft;
     private LinearLayout divEpg;
-    RelativeLayout ll_epg_overlay; // ★ 修改：全屏节目单覆盖层
+    RelativeLayout ll_epg_overlay; // 节目单覆盖层
     TextView tv_channelnum;
     TextView tip_chname;
     TextView tip_epg1;
@@ -304,7 +304,7 @@ public class LivePlayActivity extends BaseActivity {
     private JsonObject catchup = null;
     private String logoUrl = null;
 
-    // ★ 新增：切换按钮
+    // 切换按钮
     private Button btnProgramList;
     private Button btnChannelGroup;
 
@@ -348,7 +348,6 @@ public class LivePlayActivity extends BaseActivity {
             tv_srcinfo = findViewById(R.id.tv_source);
             tv_curepg_left = findViewById(R.id.tv_current_program);
             tv_nextepg_left = findViewById(R.id.tv_next_program);
-            // ★ 修改：使用新的覆盖层ID
             ll_epg_overlay = findViewById(R.id.ll_epg_overlay);
             tv_right_top_channel_name = findViewById(R.id.tv_right_top_channel_name);
             tv_right_top_epg_name = findViewById(R.id.tv_right_top_epg_name);
@@ -358,6 +357,10 @@ public class LivePlayActivity extends BaseActivity {
             txtNoEpg = findViewById(R.id.txtNoEpg);
             ll_right_top_loading = findViewById(R.id.ll_right_top_loading);
             ll_right_top_huikan = findViewById(R.id.ll_right_top_huikan);
+            divLoadEpg = findViewById(R.id.divLoadEpg);
+            divLoadEpgDivider = findViewById(R.id.divLoadEpgDivider);
+            divLoadEpgleft = findViewById(R.id.divLoadEpgleft);
+            divEpg = findViewById(R.id.divEPG);
 
             objectAnimator = ObjectAnimator.ofFloat(iv_circle_bg, "rotation", 360.0f);
             objectAnimator.setDuration(postTimeout);
@@ -389,7 +392,6 @@ public class LivePlayActivity extends BaseActivity {
             tvDesc = findViewById(R.id.tv_desc);
             initGestureDetector();
 
-            // ★ 新增：初始化切换按钮
             btnProgramList = findViewById(R.id.btn_program_list);
             btnChannelGroup = findViewById(R.id.btn_channel_group);
             if (btnProgramList != null) {
@@ -402,7 +404,6 @@ public class LivePlayActivity extends BaseActivity {
             // 默认显示频道组模式
             showChannelGroup();
 
-            // ... 原有初始化代码 ...
             if (show) {
                 if (backcontroller != null) backcontroller.setVisibility(View.VISIBLE);
                 if (ll_epg_overlay != null) ll_epg_overlay.setVisibility(View.GONE);
@@ -509,40 +510,31 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
-    // ★ 新增：显示节目单模式
+    // 显示节目单模式
     private void showProgramList() {
         if (ll_epg_overlay != null) {
             ll_epg_overlay.setVisibility(View.VISIBLE);
-            // 隐藏频道列表和底部信息栏
             if (tvLeftChannelListLayout != null) tvLeftChannelListLayout.setVisibility(View.INVISIBLE);
             if (llBottomInfoBar != null) llBottomInfoBar.setVisibility(View.GONE);
-            // 切换按钮可见性
             if (btnProgramList != null) btnProgramList.setVisibility(View.GONE);
             if (btnChannelGroup != null) btnChannelGroup.setVisibility(View.VISIBLE);
-            // 加载当前频道的EPG
             if (channel_Name != null) getEpg(new Date());
         }
     }
 
-    // ★ 新增：显示频道组模式
+    // 显示频道组模式
     private void showChannelGroup() {
         if (ll_epg_overlay != null) {
             ll_epg_overlay.setVisibility(View.GONE);
         }
-        // 显示频道列表（如果之前隐藏了）
-        if (tvLeftChannelListLayout != null && tvLeftChannelListLayout.getVisibility() != View.VISIBLE) {
-            // 可能通过其他方式显示，这里不强制显示，由原有逻辑控制
-        }
-        // 显示底部信息栏（如果当前有频道）
         if (channel_Name != null) {
             showBottomInfoBar();
         }
-        // 切换按钮
         if (btnProgramList != null) btnProgramList.setVisibility(View.VISIBLE);
         if (btnChannelGroup != null) btnChannelGroup.setVisibility(View.GONE);
     }
 
-    // ========== 源列表相关方法（不变） ==========
+    // ========== 源列表相关方法 ==========
     private void initSourceListView() {
         if (mSourceListView == null) return;
         mSourceListView.setHasFixedSize(true);
@@ -2805,7 +2797,7 @@ public class LivePlayActivity extends BaseActivity {
         mHandler.postDelayed(mHideSettingLayoutRun, postTimeout);
     }
 
-    // ========== 新增源管理对话框（不变） ==========
+    // ========== 源管理对话框 ==========
     private void showSourceManageDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("列表订阅");
@@ -3148,7 +3140,7 @@ public class LivePlayActivity extends BaseActivity {
         return "直播";
     }
 
-    // ========== 其余方法（保持不变） ==========
+    // ========== 其余方法 ==========
     private void performUpdateSubscription() {
         String liveApiUrl = Hawk.get(HawkConfig.LIVE_API_URL, "");
         if (liveApiUrl.isEmpty()) {
