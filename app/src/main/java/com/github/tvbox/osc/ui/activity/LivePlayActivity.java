@@ -2,7 +2,6 @@ package com.github.tvbox.osc.ui.activity;
 
 import static xyz.doikki.videoplayer.util.PlayerUtils.safeTimeMs;
 
-import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.IntEvaluator;
@@ -46,7 +45,6 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.github.catvod.crawler.Spider;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.api.ApiConfig;
@@ -78,7 +76,6 @@ import com.github.tvbox.osc.util.epg.EpgManager;
 import com.github.tvbox.osc.util.EpgUtil;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
-import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.util.OkGoHelper;
 import com.github.tvbox.osc.util.PlayerHelper;
 import com.github.tvbox.osc.util.HistoryHelper;
@@ -97,14 +94,8 @@ import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 
 import java.io.IOException;
-import java.io.StringReader;
 import java.net.URLEncoder;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -117,7 +108,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.TimeZone;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -126,9 +116,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import xyz.doikki.videoplayer.exo.ExoMediaSourceHelper;
 import xyz.doikki.videoplayer.player.VideoView;
@@ -238,12 +225,8 @@ public class LivePlayActivity extends BaseActivity {
     private static LiveChannelItem channel_Name = null;
     private static Hashtable<String, ArrayList<Epginfo>> hsEpg = new Hashtable<>();
     private CountDownTimer countDownTimer;
-    private View ll_right_top_loading;
-    private View ll_right_top_huikan;
-    private View divLoadEpg;
-    private View divLoadEpgDivider;
-    private View divLoadEpgleft;
-    private LinearLayout divEpg;
+    // 已删除废弃成员变量：ll_right_top_loading, ll_right_top_huikan, divLoadEpg, divLoadEpgDivider, divLoadEpgleft, divEpg
+
     RelativeLayout ll_epg_overlay; // 节目单覆盖层
     TextView tv_channelnum;
     TextView tip_chname;
@@ -355,12 +338,7 @@ public class LivePlayActivity extends BaseActivity {
             iv_back_bg = findViewById(R.id.iv_back_bg);
             tv_shownum = findViewById(R.id.tv_shownum);
             txtNoEpg = findViewById(R.id.txtNoEpg);
-            ll_right_top_loading = findViewById(R.id.ll_right_top_loading);
-            ll_right_top_huikan = findViewById(R.id.ll_right_top_huikan);
-            divLoadEpg = findViewById(R.id.divLoadEpg);
-            divLoadEpgDivider = findViewById(R.id.divLoadEpgDivider);
-            divLoadEpgleft = findViewById(R.id.divLoadEpgleft);
-            divEpg = findViewById(R.id.divEPG);
+            // 已删除废弃 findViewById：ll_right_top_loading, ll_right_top_huikan, divLoadEpg, divLoadEpgDivider, divLoadEpgleft, divEpg
 
             objectAnimator = ObjectAnimator.ofFloat(iv_circle_bg, "rotation", 360.0f);
             objectAnimator.setDuration(postTimeout);
@@ -735,13 +713,11 @@ public class LivePlayActivity extends BaseActivity {
         if (hasEpg) {
             txtNoEpg.setVisibility(View.GONE);
             if (mRightEpgList != null) mRightEpgList.setVisibility(View.VISIBLE);
-            if (ll_right_top_loading != null) ll_right_top_loading.setVisibility(View.GONE);
         } else {
             epgdata = new ArrayList<>();
             if (epgListAdapter != null) epgListAdapter.setNewData(epgdata);
             txtNoEpg.setVisibility(View.VISIBLE);
             if (mRightEpgList != null) mRightEpgList.setVisibility(View.GONE);
-            if (ll_right_top_loading != null) ll_right_top_loading.setVisibility(View.GONE);
         }
     }
 
@@ -1133,27 +1109,19 @@ public class LivePlayActivity extends BaseActivity {
         // 更新底部信息栏
         updateBottomInfoBar();
 
-        // 处理加载动画和计时器（保留原有逻辑）
+        // 处理加载动画和计时器（原来有对 ll_right_top_loading 的操作，已删除）
         if (countDownTimer != null) countDownTimer.cancel();
-        if (!"暂无当前节目".equals(tip_epg1.getText().toString())) {
-            if (ll_right_top_loading != null) ll_right_top_loading.setVisibility(View.VISIBLE);
-            if (ll_epg_overlay != null && !isListOrSettingLayoutVisible()) {
-                // 节目单覆盖层在节目单模式才显示，此处不控制
+        // 原来的加载动画已移除，此处不再控制
+        // 但保留计时器用于隐藏其他UI（如果有）
+        countDownTimer = new CountDownTimer(postTimeout, 1000) {
+            public void onTick(long j) {
             }
-            countDownTimer = new CountDownTimer(postTimeout, 1000) {
-                public void onTick(long j) {
-                }
 
-                public void onFinish() {
-                    if (ll_right_top_loading != null) ll_right_top_loading.setVisibility(View.GONE);
-                    if (ll_right_top_huikan != null) ll_right_top_huikan.setVisibility(View.GONE);
-                }
-            };
-            countDownTimer.start();
-        } else {
-            if (ll_right_top_loading != null) ll_right_top_loading.setVisibility(View.GONE);
-            if (ll_right_top_huikan != null) ll_right_top_huikan.setVisibility(View.GONE);
-        }
+            public void onFinish() {
+                // 原来对 ll_right_top_loading 和 ll_right_top_huikan 的操作已删除
+            }
+        };
+        countDownTimer.start();
 
         // 更新频道图标
         updateCurrentChannelIcon();
@@ -1229,11 +1197,13 @@ public class LivePlayActivity extends BaseActivity {
 
     @SuppressLint("NotifyDataSetChanged")
     public void divLoadEpgRight(View view) {
-        // 不再使用，因为节目单由按钮控制
+        // 改为显示节目单
+        showProgramList();
     }
 
     public void divLoadEpgLeft(View view) {
-        // 不再使用
+        // 改为返回频道组
+        showChannelGroup();
     }
 
     @Override
@@ -1301,8 +1271,7 @@ public class LivePlayActivity extends BaseActivity {
         selectedChannelNumber = selectedChannelNumber * 10 + digit;
         if (tvSelectedChannel != null) {
             tvSelectedChannel.setText(Integer.toString(selectedChannelNumber));
-            if (ll_right_top_loading != null) ll_right_top_loading.setVisibility(View.GONE);
-            if (ll_right_top_huikan != null) ll_right_top_huikan.setVisibility(View.GONE);
+            // 删除对 ll_right_top_loading 和 ll_right_top_huikan 的操作
             tvSelectedChannel.setVisibility(View.VISIBLE);
         }
         mHandler.removeCallbacks(mPlaySelectedChannel);
@@ -1323,15 +1292,12 @@ public class LivePlayActivity extends BaseActivity {
                     return true;
                 }
                 if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && isFocusInView(mLiveChannelView)) {
-                    // 在频道列表按右可切换至节目单（如果已显示）
                     if (ll_epg_overlay != null && ll_epg_overlay.getVisibility() == View.VISIBLE) {
-                        // 聚焦节目单列表
                         if (mRightEpgList != null) mRightEpgList.requestFocus();
                     }
                     return true;
                 }
                 if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && isFocusInView(mRightEpgList)) {
-                    // 节目单左键返回频道列表
                     if (mLiveChannelView != null) mLiveChannelView.requestFocus();
                     return true;
                 }
@@ -1483,7 +1449,6 @@ public class LivePlayActivity extends BaseActivity {
             mHandler.post(mHideSettingLayoutRun);
             return;
         }
-        // 如果节目单覆盖层可见，先关闭
         if (ll_epg_overlay != null && ll_epg_overlay.getVisibility() == View.VISIBLE) {
             showChannelGroup();
             return;
@@ -1595,12 +1560,7 @@ public class LivePlayActivity extends BaseActivity {
     private void focusCurrentGroupInMenu() {
         if (currentChannelGroupIndex < 0) return;
         if (mChannelGroupView != null) mChannelGroupView.setVisibility(View.VISIBLE);
-        if (divEpg != null) divEpg.setVisibility(View.GONE);
-        if (divLoadEpgleft != null) divLoadEpgleft.setVisibility(View.GONE);
-        if (divLoadEpg != null) {
-            boolean hasEpg = epgListAdapter != null && epgListAdapter.getData() != null && !epgListAdapter.getData().isEmpty();
-            divLoadEpg.setVisibility(hasEpg ? View.VISIBLE : View.GONE);
-        }
+        // 删除对 divEpg, divLoadEpgleft, divLoadEpg 的操作
         if (liveChannelGroupAdapter != null) {
             liveChannelGroupAdapter.setSelectedGroupIndex(currentChannelGroupIndex);
         }
@@ -1702,9 +1662,7 @@ public class LivePlayActivity extends BaseActivity {
                     public void onAnimationEnd(Animator animation) {
                         super.onAnimationEnd(animation);
                         tvLeftChannelListLayout.setVisibility(View.INVISIBLE);
-                        if (ll_epg_overlay != null && tv_curepg_left != null && !"暂无信息".equals(tip_epg1 != null ? tip_epg1.getText().toString() : "")) {
-                            // 不自动显示覆盖层
-                        }
+                        // 删除对 ll_epg_overlay 的自动显示
                     }
                 });
                 animator.start();
@@ -1980,7 +1938,7 @@ public class LivePlayActivity extends BaseActivity {
         updateCurrentChannelIcon();
         showBottomEpg();
         if (backcontroller != null) backcontroller.setVisibility(View.GONE);
-        if (ll_right_top_huikan != null) ll_right_top_huikan.setVisibility(View.GONE);
+        // 删除对 ll_right_top_huikan 的操作
         if (mVideoView != null) {
             if (liveChannelHeader() != null) FileLogger.write("LivePlay", "echo-" + liveChannelHeader().toString());
             if (showPreviousFrame) {
@@ -2134,9 +2092,6 @@ public class LivePlayActivity extends BaseActivity {
                         super.onAnimationEnd(animation);
                         tvRightSettingLayout.setVisibility(View.INVISIBLE);
                         if (liveSettingGroupAdapter != null) liveSettingGroupAdapter.setSelectedGroupIndex(-1);
-                        if (ll_epg_overlay != null && tv_curepg_left != null && !"暂无信息".equals(tip_epg1 != null ? tip_epg1.getText().toString() : "")) {
-                            // 不自动显示
-                        }
                     }
                 });
                 animator.start();
@@ -4002,12 +3957,12 @@ public class LivePlayActivity extends BaseActivity {
     public void showProgressBars(boolean show) {
         if (sBar != null) sBar.requestFocus();
         if (show) {
-            if (ll_right_top_huikan != null) ll_right_top_huikan.setVisibility(View.VISIBLE);
+            // 删除对 ll_right_top_huikan 的操作
             if (backcontroller != null) backcontroller.setVisibility(View.VISIBLE);
             if (ll_epg_overlay != null) ll_epg_overlay.setVisibility(View.GONE);
         } else {
             if (backcontroller != null) backcontroller.setVisibility(View.GONE);
-            if (ll_right_top_huikan != null) ll_right_top_huikan.setVisibility(View.GONE);
+            // 删除对 ll_right_top_huikan 的操作
             if (!"暂无信息".equals(tip_epg1 != null ? tip_epg1.getText().toString() : "")) {
                 // 不自动显示覆盖层
             }
@@ -4233,7 +4188,6 @@ public class LivePlayActivity extends BaseActivity {
             mHandler.post(mHideSettingLayoutRun);
             return;
         }
-        // 如果节目单覆盖层可见，单机隐藏（或切换）
         if (ll_epg_overlay != null && ll_epg_overlay.getVisibility() == View.VISIBLE) {
             showChannelGroup();
             return;
